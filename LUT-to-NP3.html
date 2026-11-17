@@ -11,13 +11,18 @@ button,input,select{font:inherit}
 button,label.drop,.image-button{cursor:pointer}
 button:disabled,input:disabled{cursor:not-allowed;opacity:.42}
 button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid #da9c7a;outline-offset:2px}
-header{max-width:1460px;margin:auto;padding:18px 34px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+header{max-width:1460px;margin:auto;padding:18px 34px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);gap:16px}
 .brand{display:flex;gap:12px;align-items:center}
 .brand strong{font-size:15px;letter-spacing:.4px}
 .brand small{display:block;color:var(--muted);font-size:11px}
 .mark{font:24px Georgia,serif;background:var(--ink);color:var(--paper);padding:0 7px;line-height:36px;border-radius:4px}
 .mark span{color:#ee9475;font:17px sans-serif}
+.header-right{display:flex;align-items:center;gap:14px}
 .private{font-size:11px;color:var(--green)}
+.lang-switch{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--white)}
+.lang-opt{border:0;background:transparent;color:var(--muted);font-size:11px;padding:4px 9px;font-weight:500}
+.lang-opt+.lang-opt{border-left:1px solid var(--line)}
+.lang-opt.active{background:var(--ink);color:var(--white)}
 main{max-width:1460px;margin:auto;padding:24px 34px 36px}
 .workspace{display:grid;grid-template-columns:305px minmax(0,1fr);gap:26px;align-items:start}
 .panel{background:var(--white);border:1px solid var(--line);border-radius:10px}
@@ -33,7 +38,7 @@ h2{font-size:15px;margin:0;font-weight:600}
 .plus{font-size:22px;font-weight:300;line-height:1;margin:0 0 6px;color:var(--green)}
 .drop input,.image-button input{position:absolute;width:1px;height:1px;opacity:0}
 .field{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--muted);margin-top:13px;position:relative}
-.field-row{display:flex;justify-content:space-between;align-items:center}
+.field-row{display:flex;justify-content:space-between;align-items:center;width:100%}
 .preset-count{font-style:normal;font-size:10px;color:var(--green)}
 .preset-desc{font-size:11px;color:var(--green);margin:7px 0 0;padding:7px 9px;background:#f3f6ee;border:1px solid #dce2d6;border-radius:5px;line-height:1.45}
 .field output{position:absolute;right:0;color:var(--ink);font-variant-numeric:tabular-nums}
@@ -71,7 +76,8 @@ figcaption>small{font-size:10px;color:var(--muted)}
 .metrics small{font-size:10px;color:var(--muted)}
 .metrics strong{display:block;font:26px/1.25 Georgia,serif;font-variant-numeric:tabular-nums}
 .metric-note{font-size:11px;border-left:1px solid var(--line);padding-left:16px;color:var(--green)}
-.metric-note span{color:var(--muted);font-size:10px}
+.metric-note span{color:inherit;font-size:inherit}
+#metricBasis{color:var(--muted);font-size:10px}
 .warnings{background:#f4e6d6;color:#825436;padding:10px 14px;margin-top:14px;border-radius:6px;font-size:11px}
 .warnings p{margin:3px 0}
 .manual-panel{margin-top:16px;overflow:hidden}
@@ -95,6 +101,7 @@ figcaption>small{font-size:10px;color:var(--muted)}
 .chip.active{border-color:var(--green);background:#ebf2ec;color:var(--green);font-weight:600}
 .m-slider{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted);margin-top:9px}
 .m-slider span{display:flex;justify-content:space-between;align-items:center}
+.m-lbl{font-weight:400}
 .m-slider output{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:500}
 .m-slider input[type=range]{width:100%;accent-color:var(--orange);margin:0}
 .result{padding:18px 20px;margin-top:16px}
@@ -102,7 +109,7 @@ figcaption>small{font-size:10px;color:var(--muted)}
 .tag{font-size:9px;letter-spacing:.8px;color:var(--green);border:1px solid #d1d8cd;border-radius:4px;padding:3px 7px}
 .export-fields{display:flex;gap:12px;align-items:flex-end;margin-top:4px}
 .export-fields .field{flex:1;margin-top:10px}
-.export-fields .slot{max-width:100px}
+.export-fields .slot{max-width:110px}
 .export-fields button{height:38px}
 .export-hint{margin-top:10px}
 .export-hint code{background:#f0efe9;padding:1px 5px;border-radius:3px;font-size:10.5px}
@@ -116,7 +123,8 @@ figcaption>small{font-size:10px;color:var(--muted)}
   .export-fields button{width:100%}
 }
 @media(max-width:760px){
-  header{flex-direction:column;align-items:flex-start;gap:6px}
+  header{flex-wrap:wrap}
+  .header-right{width:100%;justify-content:space-between}
   .workspace{display:flex;flex-direction:column}
   .settings{width:100%}
   .photo-hint{display:none}
@@ -127,95 +135,114 @@ figcaption>small{font-size:10px;color:var(--muted)}
 </head>
 <body>
 <header>
-  <div class="brand"><span class="mark">N<span>↗</span></span><div><strong>LUT → NP3</strong><small>Nikon Flexible Color 离线转换器</small></div></div>
-  <span class="private">● 本地离线运行 · 支持 50 款内置胶片与相机 RAW 预览</span>
+  <div class="brand"><span class="mark">N<span>↗</span></span><div><strong>LUT → NP3</strong><small data-i18n="brandSub">Nikon Flexible Color 离线转换器</small></div></div>
+  <div class="header-right">
+    <span class="private" data-i18n="privacy">● 本地离线运行 · 支持 50 款内置胶片与相机 RAW 预览</span>
+    <div class="lang-switch" id="langSwitch" role="group" aria-label="Language">
+      <button type="button" class="lang-opt active" id="langZh" data-lang="zh">中文</button>
+      <button type="button" class="lang-opt" id="langEn" data-lang="en">EN</button>
+    </div>
+  </div>
 </header>
 <main>
   <div class="workspace">
     <aside class="panel settings">
-      <div class="step"><span>01</span><h2>选择风格</h2></div>
-      <label class="drop" id="drop"><span class="plus">＋</span><strong id="fileTitle">选择或拖入 .cube 文件</strong><small id="fileInfo">支持 1D / 3D CUBE（2–65 点）</small><input id="lutFile" type="file" accept=".cube" aria-label="选择 LUT 文件"></label>
-      <label class="field preset-field"><span class="field-row">内置胶片预设 <em class="preset-count" id="presetCount">50 款</em></span><select id="filmPreset"><option value="">选择内置胶片／相机模拟…</option></select></label>
+      <div class="step"><span>01</span><h2 data-i18n="step1">选择风格</h2></div>
+      <label class="drop" id="drop"><span class="plus">＋</span><strong id="fileTitle">选择或拖入 .cube 文件</strong><small id="fileInfo">支持 1D / 3D CUBE（2–65 点）</small><input id="lutFile" type="file" accept=".cube" aria-label="Choose LUT file"></label>
+      <label class="field preset-field"><span class="field-row"><span data-i18n="presetLabel">内置胶片预设</span> <em class="preset-count" id="presetCount">50 款</em></span><select id="filmPreset"><option value="" id="presetPlaceholder">选择内置胶片／相机模拟…</option></select></label>
       <p class="preset-desc" id="presetDesc" hidden></p>
 
-      <div class="step second"><span>02</span><h2>转换设置</h2></div>
-      <label class="field">LUT 输入空间<select id="inputSpace"><option value="srgb">sRGB · 照片风格</option><option value="rec709-g24">Rec.709 · Gamma 2.4</option><option value="rec709-oetf">Rec.709 · 相机 OETF</option><option value="nlog">Nikon N-Log · BT.2020</option><option value="flog2">Fujifilm F-Log2 · F-Gamut</option><option value="flog2c">Fujifilm F-Log2 C · F-Gamut C</option><option value="flog">Fujifilm F-Log · F-Gamut</option><option value="custom">其它 Log · 前置转换 LUT</option></select></label>
-      <label class="field" id="preField" hidden>前置 CUBE（sRGB → 目标 Log）<input type="file" id="preFile" accept=".cube"><small id="preInfo">需与主 LUT 输入一致</small></label>
+      <div class="step second"><span>02</span><h2 data-i18n="step2">转换设置</h2></div>
+      <label class="field"><span data-i18n="inSpaceLabel">LUT 输入空间</span><select id="inputSpace">
+        <option value="srgb" data-i18n="in_srgb">sRGB · 照片风格</option>
+        <option value="rec709-g24" data-i18n="in_709g24">Rec.709 · Gamma 2.4</option>
+        <option value="rec709-oetf" data-i18n="in_709oetf">Rec.709 · 相机 OETF</option>
+        <option value="nlog">Nikon N-Log · BT.2020</option>
+        <option value="flog2">Fujifilm F-Log2 · F-Gamut</option>
+        <option value="flog2c">Fujifilm F-Log2 C · F-Gamut C</option>
+        <option value="flog">Fujifilm F-Log · F-Gamut</option>
+        <option value="custom" data-i18n="in_custom">其它 Log · 前置转换 LUT</option>
+      </select></label>
+      <label class="field" id="preField" hidden><span data-i18n="preLutLabel">前置 CUBE（sRGB → 目标 Log）</span><input type="file" id="preFile" accept=".cube"><small id="preInfo">需与主 LUT 输入一致</small></label>
       <div id="logFields" hidden>
-        <label class="field">高光处理<select id="highlights"><option value="expand">展开高光（照片推荐）</option><option value="linear">直接线性</option></select></label>
-        <label class="field">Log 范围<select id="range"><option value="full">全范围 0–1023（默认）</option><option value="legal">视频范围 64–940</option></select></label>
-        <label class="field">曝光偏移 <span><input id="exposure" type="number" min="-6" max="6" step="0.1" value="0"> EV</span></label>
+        <label class="field"><span data-i18n="hlLabel">高光处理</span><select id="highlights"><option value="expand" data-i18n="hl_expand">展开高光（照片推荐）</option><option value="linear" data-i18n="hl_linear">直接线性</option></select></label>
+        <label class="field"><span data-i18n="rangeLabel">Log 范围</span><select id="range"><option value="full" data-i18n="rng_full">全范围 0–1023（默认）</option><option value="legal" data-i18n="rng_legal">视频范围 64–940</option></select></label>
+        <label class="field"><span data-i18n="expLabel">曝光偏移</span> <span><input id="exposure" type="number" min="-6" max="6" step="0.1" value="0"> EV</span></label>
       </div>
-      <label class="field">LUT 输出空间<select id="outputSpace"><option value="srgb">sRGB</option><option value="rec709-g24">Rec.709 · Gamma 2.4</option><option value="rec709-oetf">Rec.709 · 相机 OETF</option></select></label>
+      <label class="field"><span data-i18n="outSpaceLabel">LUT 输出空间</span><select id="outputSpace">
+        <option value="srgb">sRGB</option>
+        <option value="rec709-g24">Rec.709 · Gamma 2.4</option>
+        <option value="rec709-oetf" data-i18n="out_709oetf">Rec.709 · 相机 OETF</option>
+      </select></label>
       <p class="hint" id="spaceHint" hidden></p>
-      <label class="field">效果强度 <output id="strengthValue">100%</output><input type="range" id="strength" min="0" max="100" value="100"></label>
-      <label class="check-field"><input type="checkbox" id="sceneWeight"><span><strong>按当前预览照片色彩优化</strong><small>强风格超纲时优先贴合右侧照片中的主要色彩</small></span></label>
+      <label class="field"><span data-i18n="strengthLabel">效果强度</span> <output id="strengthValue">100%</output><input type="range" id="strength" min="0" max="100" value="100"></label>
+      <label class="check-field"><input type="checkbox" id="sceneWeight"><span><strong data-i18n="sceneTitle">按当前预览照片色彩优化</strong><small data-i18n="sceneSub">强风格超纲时优先贴合右侧照片中的主要色彩</small></span></label>
 
-      <button class="primary" id="convert" hidden disabled>重新拟合</button>
-      <button class="secondary" id="cancel" hidden>取消拟合</button>
+      <button class="primary" id="convert" data-i18n="refitBtn" hidden disabled>重新拟合</button>
+      <button class="secondary" id="cancel" data-i18n="cancelBtn" hidden>取消拟合</button>
       <div id="progressWrap" hidden><progress id="progress" max="100" value="0"></progress><p id="progressText">正在拟合…</p></div>
       <p id="status" role="status" aria-live="polite">选择内置胶片或拖入 .cube 自动生成预览。</p>
     </aside>
 
     <section class="preview-area" id="previewArea">
       <div class="preview-heading">
-        <h2>效果对比</h2>
+        <h2 data-i18n="compareHeading">效果对比</h2>
         <div class="photo-controls">
-          <small class="photo-hint">可直接拖入或粘贴 JPG / PNG / TIFF / NEF / RAF / ARW / CR3 / DNG</small>
-          <label class="image-button">换一张照片<input type="file" id="photo" accept="image/*,.jpg,.jpeg,.png,.webp,.avif,.heic,.heif,.hif,.tif,.tiff,.bmp,.gif,.nef,.nrw,.raf,.arw,.cr2,.cr3,.dng,.orf,.rw2,.pef,.srw,.3fr,.iiq,.rwl,.tga,.ppm,.pgm,.pnm,.hdr,.pfm" aria-label="选择预览照片"></label>
+          <small class="photo-hint" data-i18n="photoHint">可直接拖入或粘贴 JPG / PNG / TIFF / NEF / RAF / ARW / CR3 / DNG</small>
+          <label class="image-button"><span data-i18n="changePhotoBtn">换一张照片</span><input type="file" id="photo" accept="image/*,.jpg,.jpeg,.png,.webp,.avif,.heic,.heif,.hif,.tif,.tiff,.bmp,.gif,.nef,.nrw,.raf,.arw,.cr2,.cr3,.dng,.orf,.rw2,.pef,.srw,.3fr,.iiq,.rwl,.tga,.ppm,.pgm,.pnm,.hdr,.pfm" aria-label="Change preview photo"></label>
         </div>
       </div>
 
       <div class="previews">
-        <figure><div class="canvas-wrap"><canvas id="original"></canvas></div><figcaption><span>01 / 原图</span><small id="origCaption">sRGB 参考</small></figcaption></figure>
-        <figure><div class="canvas-wrap"><canvas id="target"></canvas></div><figcaption><span>02 / 目标 LUT</span><small id="targetCaption">等待选择风格</small></figcaption></figure>
-        <figure><div class="canvas-wrap fit-wrap"><canvas id="fitted" hidden></canvas><div id="fitOverlay" class="fit-overlay">选择风格后自动生成预览</div></div><figcaption><span>03 / NP3 效果预览</span><small id="fitCaption">等待自动拟合</small></figcaption></figure>
+        <figure><div class="canvas-wrap"><canvas id="original"></canvas></div><figcaption><span data-i18n="fig1">01 / 原图</span><small id="origCaption">sRGB 参考</small></figcaption></figure>
+        <figure><div class="canvas-wrap"><canvas id="target"></canvas></div><figcaption><span data-i18n="fig2">02 / 目标 LUT</span><small id="targetCaption">等待选择风格</small></figcaption></figure>
+        <figure><div class="canvas-wrap fit-wrap"><canvas id="fitted" hidden></canvas><div id="fitOverlay" class="fit-overlay">选择风格后自动生成预览</div></div><figcaption><span data-i18n="fig3">03 / NP3 效果预览</span><small id="fitCaption">等待自动拟合</small></figcaption></figure>
       </div>
 
       <div class="metrics" id="metrics">
         <div><small id="rmseLabel">照片常见颜色误差 / 255</small><strong id="rmse">—</strong></div>
-        <div><small>还原度</small><strong id="fidelity">—</strong></div>
-        <div class="metric-note">95% 分位：<b id="p95">—</b> · 灰阶：<b id="grayRmse">—</b> · 低饱和：<b id="lowSatRmse">—</b><br><span id="metricBasis">基于尼康工坊（NX Studio）引擎标定模型评估（≤4 为高，4–7 为中）。</span></div>
+        <div><small data-i18n="fidelityLabel">还原度</small><strong id="fidelity">—</strong></div>
+        <div class="metric-note"><span data-i18n="mP95">95% 分位</span>：<b id="p95">—</b> · <span data-i18n="mGray">灰阶</span>：<b id="grayRmse">—</b> · <span data-i18n="mLowSat">低饱和</span>：<b id="lowSatRmse">—</b><br><span id="metricBasis">基于尼康工坊（NX Studio）引擎标定模型评估（≤4 为高，4–7 为中）。</span></div>
       </div>
 
       <div id="warnings" class="warnings" hidden></div>
 
       <details class="manual-panel panel" id="manualPanel">
         <summary>
-          <div class="manual-head"><strong>机内质感与微调</strong><span class="manual-badge" id="manualBadge">可选</span></div>
-          <button type="button" class="reset-btn" id="resetManual" hidden>恢复默认</button>
+          <div class="manual-head"><strong data-i18n="manualTitle">机内质感与微调</strong><span class="manual-badge" id="manualBadge">可选</span></div>
+          <button type="button" class="reset-btn" id="resetManual" data-i18n="resetBtn" hidden>恢复默认</button>
         </summary>
         <div class="manual-grid">
           <div class="m-card">
-            <div class="m-card-head"><strong>整体口味微调</strong><small>无偏色偏移 · 实时刷新预览</small></div>
-            <label class="m-slider"><span>饱和度偏移 <output id="mSatDeltaVal">0</output></span><input type="range" id="mSatDelta" min="-25" max="25" step="1" value="0" disabled></label>
-            <label class="m-slider"><span>暗部黑位 / 褪色感 <output id="mFadeVal">0</output></span><input type="range" id="mFade" min="-20" max="20" step="1" value="0" disabled></label>
-            <label class="m-slider"><span>对比度微调 <output id="mContrastVal">0</output></span><input type="range" id="mContrast" min="-20" max="20" step="1" value="0" disabled></label>
+            <div class="m-card-head"><strong data-i18n="toneCardTitle">整体口味微调</strong><small data-i18n="toneCardSub">无偏色偏移 · 实时刷新预览</small></div>
+            <label class="m-slider"><span><b class="m-lbl" data-i18n="mSatLabel">饱和度偏移</b> <output id="mSatDeltaVal">0</output></span><input type="range" id="mSatDelta" min="-25" max="25" step="1" value="0" disabled></label>
+            <label class="m-slider"><span><b class="m-lbl" data-i18n="mFadeLabel">暗部黑位 / 褪色感</b> <output id="mFadeVal">0</output></span><input type="range" id="mFade" min="-20" max="20" step="1" value="0" disabled></label>
+            <label class="m-slider"><span><b class="m-lbl" data-i18n="mContLabel">对比度微调</b> <output id="mContrastVal">0</output></span><input type="range" id="mContrast" min="-20" max="20" step="1" value="0" disabled></label>
           </div>
           <div class="m-card">
             <div class="m-card-head">
-              <strong>机内空间质感</strong>
+              <strong data-i18n="spatialCardTitle">机内空间质感</strong>
               <div class="preset-chips" id="texturePresets">
-                <button type="button" class="chip active" data-sharp="2" data-mid="1" data-clarity="0">标准</button>
-                <button type="button" class="chip" data-sharp="1" data-mid="0" data-clarity="-2">胶片柔化</button>
-                <button type="button" class="chip" data-sharp="4" data-mid="2" data-clarity="1.5">街拍硬朗</button>
+                <button type="button" class="chip active" data-sharp="2" data-mid="1" data-clarity="0" data-i18n="chipStd">标准</button>
+                <button type="button" class="chip" data-sharp="1" data-mid="0" data-clarity="-2" data-i18n="chipSoft">胶片柔化</button>
+                <button type="button" class="chip" data-sharp="4" data-mid="2" data-clarity="1.5" data-i18n="chipCrisp">街拍硬朗</button>
               </div>
             </div>
-            <label class="m-slider"><span>清晰度 Clarity <output id="mClarityVal">0</output></span><input type="range" id="mClarity" min="-5" max="5" step="0.25" value="0"></label>
-            <label class="m-slider"><span>全局锐化 Sharpening <output id="mSharpVal">2</output></span><input type="range" id="mSharp" min="-3" max="9" step="0.25" value="2"></label>
-            <label class="m-slider"><span>中间调锐化 Mid-range <output id="mMidSharpVal">1</output></span><input type="range" id="mMidSharp" min="-5" max="5" step="0.25" value="1"></label>
+            <label class="m-slider"><span><b class="m-lbl" data-i18n="mClarLabel">清晰度 Clarity</b> <output id="mClarityVal">0</output></span><input type="range" id="mClarity" min="-5" max="5" step="0.25" value="0"></label>
+            <label class="m-slider"><span><b class="m-lbl" data-i18n="mSharpLabel">全局锐化 Sharpening</b> <output id="mSharpVal">2</output></span><input type="range" id="mSharp" min="-3" max="9" step="0.25" value="2"></label>
+            <label class="m-slider"><span><b class="m-lbl" data-i18n="mMidSharpLabel">中间调锐化 Mid-range</b> <output id="mMidSharpVal">1</output></span><input type="range" id="mMidSharp" min="-5" max="5" step="0.25" value="1"></label>
           </div>
         </div>
       </details>
 
       <div class="result panel">
-        <div class="result-heading"><div class="step"><span>03</span><h2>导出相机配置</h2></div><span class="tag">FLEXIBLE COLOR · 0310</span></div>
+        <div class="result-heading"><div class="step"><span>03</span><h2 data-i18n="step3">导出相机配置</h2></div><span class="tag">FLEXIBLE COLOR · 0310</span></div>
         <div class="export-fields">
-          <label class="field">相机中显示的名称<input id="presetName" maxlength="19" value="My LUT" placeholder="1–19 个英文/数字字符"></label>
-          <label class="field slot">卡槽编号<input id="slot" type="number" min="1" max="99" step="1" value="1"></label>
-          <button class="primary" id="download" disabled>下载 NP3 ↓</button>
+          <label class="field"><span data-i18n="nameLabel">相机中显示的名称</span><input id="presetName" maxlength="19" value="My LUT" placeholder="1–19 个英文/数字字符"></label>
+          <label class="field slot"><span data-i18n="slotLabel">卡槽编号</span><input id="slot" type="number" min="1" max="99" step="1" value="1"></label>
+          <button class="primary" id="download" data-i18n="downloadBtn" disabled>下载 NP3 ↓</button>
         </div>
-        <p class="hint export-hint">放入存储卡 <code>NIKON/CUSTOMPC/PICCON01.NP3</code>，在相机「管理优化校准 → 载入/保存 → 复制到照相机」中导入。</p>
+        <p class="hint export-hint" id="exportHint">放入存储卡 <code>NIKON/CUSTOMPC/PICCON01.NP3</code>，在相机「管理优化校准 → 载入/保存 → 复制到照相机」中导入。</p>
       </div>
     </section>
   </div>
@@ -2884,11 +2911,334 @@ return {serialize, deserialize};
 </script><script>(function(){
   'use strict';
   const C=window.LutNP3,P=window.LutPresets,D=window.LutPhoto,$=id=>document.getElementById(id);
-  let cube=null,preLut=null,result=null,shownResult=null,baseParams=null,activeParams=null,busy=false,sourceName='',sourcePreset=null,photoVersion=0,lutVersion=0,preVersion=0;
-  let fitGeneration=0,activeGeneration=null,fitTimer=null,previewTimer=null,manualTimer=null,queuedFit=false,fitMessage='选择风格后自动生成预览';
-  const src=document.createElement('canvas');src.width=600;src.height=800;
+  let lang='zh';
+  try{const saved=window.localStorage?.getItem('lut_np3_lang');if(saved==='en'||saved==='zh')lang=saved;}catch{}
 
-  function setStatus(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
+  const I18N={
+    zh:{
+      docTitle:'LUT → NP3 · Nikon Flexible Color 转换器',
+      brandSub:'Nikon Flexible Color 离线转换器',
+      privacy:'● 本地离线运行 · 支持 50 款内置胶片与相机 RAW 预览',
+      step1:'选择风格',
+      dropIdleTitle:'选择或拖入 .cube 文件',
+      dropIdleInfo:'支持 1D / 3D CUBE（2–65 点）',
+      dropFailed:'文件未加载',
+      presetLabel:'内置胶片预设',
+      presetCount:n=>n+' 款',
+      presetPlaceholder:'选择内置胶片／相机模拟…',
+      step2:'转换设置',
+      inSpaceLabel:'LUT 输入空间',
+      in_srgb:'sRGB · 照片风格',
+      in_709g24:'Rec.709 · Gamma 2.4',
+      in_709oetf:'Rec.709 · 相机 OETF',
+      in_custom:'其它 Log · 前置转换 LUT',
+      preLutLabel:'前置 CUBE（sRGB → 目标 Log）',
+      preInfoIdle:'需与主 LUT 输入一致',
+      preInfoFailed:'未加载',
+      hlLabel:'高光处理',
+      hl_expand:'展开高光（照片推荐）',
+      hl_linear:'直接线性',
+      rangeLabel:'Log 范围',
+      rng_full:'全范围 0–1023（默认）',
+      rng_legal:'视频范围 64–940',
+      expLabel:'曝光偏移',
+      outSpaceLabel:'LUT 输出空间',
+      out_709oetf:'Rec.709 · 相机 OETF',
+      strengthLabel:'效果强度',
+      sceneTitle:'按当前预览照片色彩优化',
+      sceneSub:'强风格超纲时优先贴合右侧照片中的主要色彩',
+      refitBtn:'重新拟合',
+      cancelBtn:'取消拟合',
+      compareHeading:'效果对比',
+      photoHint:'可直接拖入或粘贴 JPG / PNG / TIFF / NEF / RAF / ARW / CR3 / DNG',
+      changePhotoBtn:'换一张照片',
+      fig1:'01 / 原图',
+      fig2:'02 / 目标 LUT',
+      fig3:'03 / NP3 效果预览',
+      origRef:'sRGB 参考',
+      origRaw:'RAW 内嵌预览（含拍摄时优化校准）',
+      origEmbed:'内嵌预览 · sRGB 参考',
+      targetWait:'等待选择风格',
+      targetApplied:'已套用目标 LUT',
+      fitIdle:'选择风格后自动生成预览',
+      fitPending:'等待自动更新…',
+      fitNeedPre:'请先加载匹配的前置 LUT',
+      fitReading:'正在读取 LUT…',
+      fitReadErr:'LUT 读取失败',
+      fitPreErr:'前置 LUT 未就绪',
+      fitRunning:'正在自动拟合…',
+      fitFailed:'拟合失败，可点击重新拟合',
+      fitCancelled:'已取消，点击左侧重新拟合',
+      fitPrevSuffix:' · 暂为上次结果',
+      fitModelCap:'按 NX Studio 引擎校准的模型预览',
+      fitModelEdited:'模型预览（已叠加手动微调）',
+      rmsePhoto:'照片常见颜色误差 / 255',
+      rmseScene:'当前照片颜色误差 / 255',
+      fidelityLabel:'还原度',
+      mP95:'95% 分位',
+      mGray:'灰阶',
+      mLowSat:'低饱和',
+      basisIdle:'基于尼康工坊（NX Studio）引擎标定模型评估（≤4 为高，4–7 为中）。',
+      basisPhoto:s=>'在 900 个真实照片颜色上比较校准模型与目标 LUT（≤4 为高，4–7 为中）'+s,
+      basisScene:(cnt,g,s)=>'已针对当前预览照片的 '+cnt+' 个色彩样本优化（通用 900 色误差：'+g+'）'+s,
+      basisEdited:'（含手动微调偏移）。',
+      basisDot:'。',
+      manualTitle:'机内质感与微调',
+      badgeOpt:'可选',
+      badgeEdited:'已微调',
+      resetBtn:'恢复默认',
+      toneCardTitle:'整体口味微调',
+      toneCardSub:'无偏色偏移 · 实时刷新预览',
+      mSatLabel:'饱和度偏移',
+      mFadeLabel:'暗部黑位 / 褪色感',
+      mContLabel:'对比度微调',
+      spatialCardTitle:'机内空间质感',
+      chipStd:'标准',
+      chipSoft:'胶片柔化',
+      chipCrisp:'街拍硬朗',
+      mClarLabel:'清晰度 Clarity',
+      mSharpLabel:'全局锐化 Sharpening',
+      mMidSharpLabel:'中间调锐化 Mid-range',
+      step3:'导出相机配置',
+      nameLabel:'相机中显示的名称',
+      namePlaceholder:'1–19 个英文/数字字符',
+      slotLabel:'卡槽编号',
+      downloadBtn:'下载 NP3 ↓',
+      exportHint:'放入存储卡 <code>NIKON/CUSTOMPC/PICCON01.NP3</code>，在相机「管理优化校准 → 载入/保存 → 复制到照相机」中导入。',
+      stIdle:'选择内置胶片或拖入 .cube 自动生成预览。',
+      stScheduled:'正在准备自动拟合…',
+      stReading:'正在读取 LUT…',
+      stWaitPre:'LUT 已读取；加载前置 LUT 后自动拟合。',
+      stFitting:'正在拟合曲线、分色与色彩分级…',
+      stDone:'拟合完成，可直接导出 NP3 或展开下方「机内质感与微调」精修。',
+      stCancelled:'已取消拟合。',
+      stRawLoading:'正在提取相机 RAW 内嵌预览图…',
+      stPhotoLoaded:n=>'已更换预览照片：'+(n||'剪贴板图像'),
+      stExported:(f,n)=>'已导出 '+f+'.NP3（名称：'+n+'）。',
+      progStart:'正在拟合…',
+      progPct:p=>'拟合 '+p+'%',
+      logHint:sp=>'Log 模式会先将照片换算为场景光并编码至 '+sp+'。',
+      customHint:'前置 CUBE 须为 sRGB → 主 LUT 的目标 Log 空间。',
+      grades:{high:'高',medium:'中',low:'低'},
+      groups:{
+        'Fujifilm 胶片模拟':'Fujifilm 胶片模拟',
+        'Ricoh GR 胶片模拟':'Ricoh GR 胶片模拟',
+        '电影胶片 · 开源物理与印片':'电影胶片 · 开源物理与印片',
+        'GRKit 同源配方':'GRKit 同源配方',
+        '更多胶片 · 开源精选':'更多胶片 · 开源精选'
+      }
+    },
+    en:{
+      docTitle:'LUT → NP3 · Nikon Flexible Color Converter',
+      brandSub:'Offline Nikon Flexible Color Converter',
+      privacy:'● 100% Local & Offline · 50 Built-in Film Looks & Camera RAW Preview',
+      step1:'Choose Look',
+      dropIdleTitle:'Choose or drop a .cube file',
+      dropIdleInfo:'Supports 1D / 3D CUBE (2–65³)',
+      dropFailed:'File not loaded',
+      presetLabel:'Built-in Film Presets',
+      presetCount:n=>n+' looks',
+      presetPlaceholder:'Select a film or camera look…',
+      step2:'Conversion Settings',
+      inSpaceLabel:'LUT Input Space',
+      in_srgb:'sRGB · Photo Look',
+      in_709g24:'Rec.709 · Gamma 2.4',
+      in_709oetf:'Rec.709 · Camera OETF',
+      in_custom:'Custom Log · Pre-Transform LUT',
+      preLutLabel:'Pre-LUT (sRGB → Target Log)',
+      preInfoIdle:'Must match main LUT input space',
+      preInfoFailed:'Not loaded',
+      hlLabel:'Highlight Handling',
+      hl_expand:'Expand Highlights (Recommended)',
+      hl_linear:'Linear Direct',
+      rangeLabel:'Log Data Range',
+      rng_full:'Full Range 0–1023 (Default)',
+      rng_legal:'Legal Video Range 64–940',
+      expLabel:'Exposure Offset',
+      outSpaceLabel:'LUT Output Space',
+      out_709oetf:'Rec.709 · Camera OETF',
+      strengthLabel:'Strength',
+      sceneTitle:'Optimize for Current Photo',
+      sceneSub:'Prioritize colors present in the preview image for strong stylistic LUTs',
+      refitBtn:'Refit Now',
+      cancelBtn:'Cancel Fit',
+      compareHeading:'Look Comparison',
+      photoHint:'Drop or paste JPG / PNG / TIFF / NEF / RAF / ARW / CR3 / DNG',
+      changePhotoBtn:'Change Photo',
+      fig1:'01 / Original',
+      fig2:'02 / Target LUT',
+      fig3:'03 / NP3 Preview',
+      origRef:'sRGB Reference',
+      origRaw:'Embedded RAW Preview',
+      origEmbed:'Embedded Preview · sRGB',
+      targetWait:'Waiting for look',
+      targetApplied:'Target LUT applied',
+      fitIdle:'Select a look to auto-preview',
+      fitPending:'Updating…',
+      fitNeedPre:'Load matching Pre-LUT first',
+      fitReading:'Reading LUT…',
+      fitReadErr:'Failed to load LUT',
+      fitPreErr:'Pre-LUT not ready',
+      fitRunning:'Fitting parameters…',
+      fitFailed:'Fit failed — click Refit Now',
+      fitCancelled:'Cancelled — click Refit Now',
+      fitPrevSuffix:' · showing previous result',
+      fitModelCap:'NX Studio engine-calibrated model preview',
+      fitModelEdited:'Model preview (with manual fine-tuning)',
+      rmsePhoto:'Photo Color RMSE / 255',
+      rmseScene:'Current Photo RMSE / 255',
+      fidelityLabel:'Fidelity',
+      mP95:'95th pct',
+      mGray:'Neutral',
+      mLowSat:'Low-Sat',
+      basisIdle:'Evaluated with NX Studio engine-calibrated model (≤4 High, 4–7 Medium).',
+      basisPhoto:s=>'Evaluated across 900 held-out real photo colors (≤4 High, 4–7 Medium)'+s,
+      basisScene:(cnt,g,s)=>'Weighted for '+cnt+' colors in current photo (generic 900-color RMSE: '+g+')'+s,
+      basisEdited:' (with manual fine-tuning).',
+      basisDot:'.',
+      manualTitle:'In-Camera Texture & Fine-Tune',
+      badgeOpt:'Optional',
+      badgeEdited:'Edited',
+      resetBtn:'Reset',
+      toneCardTitle:'Global Tone & Color',
+      toneCardSub:'Zero-cast offset · Live preview',
+      mSatLabel:'Saturation Offset',
+      mFadeLabel:'Black Point / Matte',
+      mContLabel:'Contrast Offset',
+      spatialCardTitle:'In-Camera Spatial Texture',
+      chipStd:'Standard',
+      chipSoft:'Soft Film',
+      chipCrisp:'Crisp Street',
+      mClarLabel:'Clarity',
+      mSharpLabel:'Sharpening',
+      mMidSharpLabel:'Mid-range Sharpening',
+      step3:'Export Picture Control',
+      nameLabel:'In-Camera Display Name',
+      namePlaceholder:'1–19 ASCII characters',
+      slotLabel:'Card Slot',
+      downloadBtn:'Download NP3 ↓',
+      exportHint:'Copy <code>PICCON01.NP3</code> to <code>NIKON/CUSTOMPC/</code> on your memory card, then import via Manage Picture Control → Load/Save → Copy to camera.',
+      stIdle:'Choose a built-in look or drop a .cube file to generate a preview.',
+      stScheduled:'Preparing automatic fit…',
+      stReading:'Reading LUT…',
+      stWaitPre:'LUT loaded; waiting for Pre-LUT to start fitting.',
+      stFitting:'Fitting tone curve, color blender, and color grading…',
+      stDone:'Fit complete. Ready to export NP3 or expand Fine-Tune below.',
+      stCancelled:'Fit cancelled.',
+      stRawLoading:'Extracting embedded preview from camera RAW…',
+      stPhotoLoaded:n=>'Preview photo updated: '+(n||'Clipboard image'),
+      stExported:(f,n)=>'Exported '+f+'.NP3 (Name: '+n+').',
+      progStart:'Fitting…',
+      progPct:p=>'Fitting '+p+'%',
+      logHint:sp=>'Log mode converts photo sRGB to scene linear and encodes into '+sp+'.',
+      customHint:'Pre-LUT must transform sRGB → main LUT target Log space.',
+      grades:{high:'High',medium:'Medium',low:'Low'},
+      groups:{
+        'Fujifilm 胶片模拟':'Fujifilm Film Simulations',
+        'Ricoh GR 胶片模拟':'Ricoh GR Looks',
+        '电影胶片 · 开源物理与印片':'Cinema & Print Film',
+        'GRKit 同源配方':'GRKit Film Recipes',
+        '更多胶片 · 开源精选':'Classic Film Stocks'
+      }
+    }
+  };
+
+  const DESC_EN={
+    'fuji-provia':'Standard · Balanced natural color & clean tones',
+    'fuji-velvia':'Vivid · High-saturation landscape slide film look',
+    'fuji-astia':'Soft · Smooth skin tones & gentle contrast',
+    'fuji-classic-chrome':'Documentary muted palette with deep, rich shadows',
+    'fuji-classic-neg':'Everyday street negative with crisp warm/cool separation',
+    'fuji-reala-ace':'Faithful color reproduction with crisp tonal definition',
+    'fuji-pro-neg-std':'Soft studio portrait gradation',
+    'fuji-pro-neg-hi':'High-contrast portrait negative with sculpted shadow depth',
+    'fuji-eterna':'Cinema look · Understated saturation & wide tonal latitude',
+    'fuji-eterna-bb':'Bleach Bypass · High contrast, low saturation metallic look',
+    'fuji-wdr':'Wide Dynamic Range · Neutral natural rendering',
+    'fuji-acros':'ACROS Monochrome · Fine highlight gradation & deep blacks',
+    'fuji-acros-r':'ACROS + Red Filter · Darkens blue skies for dramatic architecture',
+    'fuji-acros-ye':'ACROS + Yellow Filter · Classic natural street B&W contrast',
+    'fuji-acros-g':'ACROS + Green Filter · Lifts foliage & softens skin tones',
+    'ricoh-positive-film':'Deep cobalt skies, punchy shadows & signature street color',
+    'ricoh-negative-film':'Airy highlights, gently lifted shadows & natural skin tones',
+    'ricoh-vivid':'Crisp micro-contrast with vibrant color saturation',
+    'ricoh-monotone':'Clean, balanced street monochrome',
+    'ricoh-soft-monotone':'Gentle low-contrast filmic monochrome',
+    'cinema-vision3-50d-2383':'Fine-grain daylight negative 5203 + Kodak 2383 theatrical print',
+    'cinema-vision3-250d-2383':'Daylight cinema negative 5207 + Kodak 2383 theatrical print',
+    'cinema-vision3-500t-2383':'Tungsten cinema negative 5219 + Kodak 2383 cool/warm print',
+    'cinema-cinestill-800t':'Tungsten 5219 cinema stock · Iconic night neon & twilight blue',
+    'cinema-eterna-vivid-3513':'Vivid cinema negative + Fuji Eterna-CP 3513DI print',
+    'gr-aerocolor-iv-v1':'Color negative · Kodak Portra Endura paper print',
+    'gr-eterna-500t-3523xd-v1':'Cinema negative · Fuji Eterna-CP 3523XD print',
+    'gr-trix-400-mono-v1':'B&W negative · Polymax Grade 2 paper',
+    'gr-red-filter-mono-v1':'B&W negative · Wratten 25 Red Filter',
+    'gr-double-x-5222-mono-v1':'Cinema B&W negative · Polymax Grade 3 paper',
+    'gr-hp5':'Classic B&W negative simulation',
+    'film-portra160':'Smooth low-contrast portrait negative with clean skin tones',
+    'film-portra400':'Classic warm-balanced color negative',
+    'film-portra800':'High-speed negative with rich amber warmth & shadow color',
+    'film-gold200':'Warm everyday consumer color negative',
+    'film-ektar100':'Ultra-vivid fine-grain daylight color negative',
+    'film-ektachrome-e100d':'Clean modern daylight reversal slide film',
+    'film-kodachrome64':'Iconic archival slide film palette',
+    'film-fuji-160c':'Cool, crisp higher-contrast color negative',
+    'film-pro400h':'Airy pastel cyan/mint highlights & soft portrait tones',
+    'film-fuji-800z':'Warm portrait negative with gentle shadow roll-off',
+    'film-fuji-provia400x':'Vibrant daylight slide film with rich blues & greens',
+    'film-fuji-astia100f':'Soft portrait slide film with delicate highlight roll-off',
+    'film-velvia50':'Classic high-impact landscape slide film',
+    'film-acros100':'Fine-grain monochrome film simulation',
+    'film-agfa-vista200':'Punchy reds & yellows for lively street photography',
+    'film-agfa-precisa100':'Crisp, cool-toned daylight slide film',
+    'film-ilford-delta100':'Clean modern tabular-grain monochrome',
+    'film-ilford-xp2':'Chromogenic C-41 B&W with silky highlight latitude',
+    'film-kodak-tmax400':'Rich midtones & crisp T-grain monochrome contrast'
+  };
+  const NAME_EN={'gr-red-filter-mono-v1':'Tri-X / Red Filter'};
+
+  const T=()=>I18N[lang];
+  function translateWarning(w){
+    if(lang==='zh')return w;
+    if(w.includes('灰阶存在反转'))return 'Grayscale inversion detected; a monotonic tone curve cannot fully represent this LUT.';
+    if(w.includes('灰阶色偏变化'))return 'Neutral ramp tint varies beyond 3-zone grading capacity; check skies and gray surfaces.';
+    if(w.includes('超出 LUT 定义域'))return 'Some inputs exceeded the LUT domain and were clamped at the boundary.';
+    if(w.includes('超出 SDR 0–1'))return 'Some LUT outputs exceeded SDR 0–1 and were clipped.';
+    if(w.includes('Log 转换基于 sRGB'))return 'Log conversion uses sRGB as a scene proxy and cannot recover clipped JPEG highlights.';
+    if(w.includes('还原度较低'))return 'Low fidelity: parts of this LUT exceed Nikon Flexible Color parameter limits; exported NP3 captures the primary tone and color cast.';
+    const m=w.match(/当前照片误差\s*([\d.]+).*通用集误差\s*([\d.]+)/);
+    if(m)return 'Scene-weighted for current photo (current photo RMSE '+m[1]+' / 255, generic holdout RMSE '+m[2]+' / 255).';
+    return w;
+  }
+  function translateError(msg){
+    if(lang==='zh'||!msg)return msg;
+    if(msg.includes('ASCII'))return 'NP3 name must be 1–19 ASCII characters.';
+    if(msg.includes('请选择 .cube'))return 'Please choose a .cube file.';
+    if(msg.includes('32 MB'))return 'File size must not exceed 32 MB.';
+    if(msg.includes('256 MB'))return 'Preview photo must not exceed 256 MB.';
+    if(msg.includes('前置 LUT'))return 'Please select a valid Pre-LUT file.';
+    if(msg.includes('卡槽编号'))return 'Slot number must be between 1 and 99.';
+    return msg;
+  }
+
+  let cube=null,preLut=null,result=null,shownResult=null,baseParams=null,activeParams=null,busy=false,sourceName='',sourcePreset=null,photoVersion=0,lutVersion=0,preVersion=0;
+  let fitGeneration=0,activeGeneration=null,fitTimer=null,previewTimer=null,manualTimer=null,queuedFit=false;
+  let fitKey='fitIdle',origKind='ref',origCustom='',statusState={kind:'stIdle',arg1:'',arg2:''};
+  const src=document.createElement('canvas');src.width=600;src.height=800;
+  const optgroups=[],presetOptions=[];
+
+  function renderStatus(){
+    const d=T(),k=statusState.kind;
+    let txt='';
+    if(k==='raw')txt=translateError(statusState.arg1);
+    else if(typeof d[k]==='function')txt=d[k](statusState.arg1,statusState.arg2);
+    else txt=d[k]||statusState.arg1;
+    $('status').textContent=txt;
+    $('status').classList.toggle('error',Boolean(statusState.error));
+  }
+  function setStatusKey(kind,arg1='',arg2='',error=false){statusState={kind,arg1,arg2,error};renderStatus();}
+  function setStatusError(err){statusState={kind:'raw',arg1:err?.message||String(err),arg2:'',error:true};renderStatus();}
+
   function opts(){
     let sceneSamples;
     if($('sceneWeight')?.checked){
@@ -2926,7 +3276,7 @@ return {serialize, deserialize};
     $('mSharpVal').textContent=String(Number($('mSharp').value));
     $('mMidSharpVal').textContent=fmtSigned($('mMidSharp').value,0.25);
     const edited=hasAnyManualOffset();
-    $('manualBadge').textContent=edited?'已微调':'可选';
+    $('manualBadge').textContent=edited?T().badgeEdited:T().badgeOpt;
     $('manualBadge').classList.toggle('edited',edited);
     $('resetManual').hidden=!edited;
     syncTextureChips();
@@ -2961,20 +3311,25 @@ return {serialize, deserialize};
     return p;
   }
   function refreshMetricsDisplay(){
-    if(!result||!activeParams)return;
+    const d=T();
+    if(!result||!activeParams){
+      if($('rmseLabel'))$('rmseLabel').textContent=$('sceneWeight')?.checked?d.rmseScene:d.rmsePhoto;
+      if($('metricBasis'))$('metricBasis').textContent=d.basisIdle;
+      return;
+    }
     const useScene=Boolean(result.settings?.sceneWeighted&&Number.isFinite(result.metrics?.sceneRgbRmse255));
     let m=result.metrics,fid=result.fidelity;
     if(hasColorOffsets()&&ready()){
       const ev=C.evaluateParams(activeParams,cube,opts());
       m={...result.metrics,...ev};fid=ev.fidelity;
     }
-    if($('rmseLabel'))$('rmseLabel').textContent=useScene?'当前照片颜色误差 / 255':'照片常见颜色误差 / 255';
+    if($('rmseLabel'))$('rmseLabel').textContent=useScene?d.rmseScene:d.rmsePhoto;
     for(const [id,key] of [['rmse',useScene?'sceneRgbRmse255':'photoRgbRmse255'],['p95',useScene?'sceneP95RgbRmse255':'photoP95RgbRmse255'],['grayRmse','grayRgbRmse255'],['lowSatRmse','lowSaturationRgbRmse255']])$(id).textContent=Number.isFinite(m[key])?m[key].toFixed(2):'—';
     if($('metricBasis')){
-      const suffix=hasColorOffsets()?'（含手动微调偏移）':'。';
-      $('metricBasis').textContent=useScene?'已针对当前预览照片的 '+(m.sceneSampleCount||result.metrics.sceneSampleCount)+' 个色彩样本优化（通用 900 色误差：'+m.photoRgbRmse255.toFixed(2)+'）'+suffix:'在 900 个真实照片颜色上比较校准模型与目标 LUT（≤4 为高，4–7 为中）'+suffix;
+      const suffix=hasColorOffsets()?d.basisEdited:d.basisDot;
+      $('metricBasis').textContent=useScene?d.basisScene(m.sceneSampleCount||result.metrics.sceneSampleCount,m.photoRgbRmse255.toFixed(2),suffix):d.basisPhoto(suffix);
     }
-    $('fidelity').textContent=fid?fid.label:'—';
+    $('fidelity').textContent=fid?(d.grades[fid.grade]||fid.label):'—';
   }
   function applyManualChange(){
     updateManualLabels();
@@ -2985,6 +3340,7 @@ return {serialize, deserialize};
       manualTimer=null;
       if(shownResult&&activeParams)draw($('fitted'),C.makeRenderer(activeParams));
       refreshMetricsDisplay();
+      fitState();
     },25);
   }
   function resetToneOffsets(){
@@ -2998,20 +3354,44 @@ return {serialize, deserialize};
     applyManualChange();
   }
 
-  function invalidate(clearPreview=false){
-    ++fitGeneration;if(fitTimer!==null)clearTimeout(fitTimer);fitTimer=null;queuedFit=false;
-    if(previewTimer!==null)clearTimeout(previewTimer);previewTimer=null;
-    result=null;baseParams=null;if(clearPreview){shownResult=null;activeParams=null;}
-    setToneSlidersEnabled(false);
-    $('download').disabled=true;
-    for(const id of ['rmse','p95','grayRmse','lowSatRmse','fidelity'])$(id).textContent='—';
-    $('warnings').hidden=true;
-    fitMessage=ready()?'等待自动更新…':cube?'请先加载匹配的前置 LUT':'选择风格后自动生成预览';
-    fitState();updateControls();
+  function showWarnings(messages){
+    const list=(messages||[]).map(translateWarning);
+    $('warnings').replaceChildren(...list.map(text=>{const p=document.createElement('p');p.textContent=text;return p;}));
+    $('warnings').hidden=!list.length;
+  }
+  function renderOrigCaption(){
+    if(!$('origCaption'))return;
+    const d=T();
+    if(origKind==='ref')$('origCaption').textContent=d.origRef;
+    else if(origKind==='raw')$('origCaption').textContent=d.origRaw;
+    else if(origKind==='embed')$('origCaption').textContent=d.origEmbed;
+    else $('origCaption').textContent=origCustom;
+  }
+  function renderFileBox(){
+    const d=T();
+    if(!cube){
+      if(fitKey==='fitReadErr'){$('fileTitle').textContent=d.dropIdleTitle;$('fileInfo').textContent=d.dropFailed;}
+      else{$('fileTitle').textContent=d.dropIdleTitle;$('fileInfo').textContent=d.dropIdleInfo;}
+      return;
+    }
+    const dispName=sourcePreset?(lang==='en'&&NAME_EN[sourcePreset.id]?NAME_EN[sourcePreset.id]:sourcePreset.name):sourceName;
+    $('fileTitle').textContent=dispName;
+    const unit1d=lang==='en'?' pts · 1D':' 点 · 1D';
+    $('fileInfo').textContent=(cube.kind===3?cube.size+'³ · 3D':cube.size+unit1d)+(cube._kb?' · '+cube._kb+' KB':'');
+  }
+  function showPresetInfo(p){
+    sourcePreset=p;$('filmPreset').value=p?p.id:'';
+    $('presetDesc').hidden=!p;
+    if(p){
+      const nm=lang==='en'&&NAME_EN[p.id]?NAME_EN[p.id]:p.name;
+      const ds=lang==='en'&&DESC_EN[p.id]?DESC_EN[p.id]:p.description;
+      $('presetDesc').textContent=nm+' · '+ds;
+    }
   }
   function fitState(){
-    $('fitted').hidden=!shownResult;$('fitOverlay').hidden=!!result;$('fitOverlay').textContent=fitMessage;
-    $('fitCaption').textContent=result?(hasColorOffsets()?'模型预览（已叠加手动微调）':'按 NX Studio 引擎校准的模型预览'):shownResult?fitMessage+' · 暂为上次结果':fitMessage;
+    const d=T(),msg=d[fitKey]||d.fitIdle;
+    $('fitted').hidden=!shownResult;$('fitOverlay').hidden=!!result;$('fitOverlay').textContent=msg;
+    $('fitCaption').textContent=result?(hasColorOffsets()?d.fitModelEdited:d.fitModelCap):shownResult?msg+d.fitPrevSuffix:msg;
   }
   function updateControls(){
     const active=busy&&activeGeneration===fitGeneration,pending=fitTimer!==null||queuedFit||active;
@@ -3020,6 +3400,59 @@ return {serialize, deserialize};
     $('convert').disabled=!ready()||active;
     $('cancel').disabled=false;$('cancel').hidden=!pending;$('progressWrap').hidden=!active;
   }
+  function spaceUI(resetOutput=true){
+    const d=T(),mode=$('inputSpace').value,isLog=['nlog','flog','flog2','flog2c'].includes(mode);
+    $('logFields').hidden=!isLog;$('preField').hidden=mode!=='custom';
+    if(resetOutput)$('outputSpace').value=['srgb','flog','flog2','flog2c'].includes(mode)?'srgb':'rec709-g24';
+    const spName=mode==='nlog'?'BT.2020 / N-Log':mode==='flog2c'?'F-Gamut C / F-Log2 C':mode==='flog2'?'F-Gamut / F-Log2':'F-Gamut / F-Log';
+    const hint=isLog?d.logHint(spName):mode==='custom'?d.customHint:'';
+    $('spaceHint').textContent=hint;$('spaceHint').hidden=!hint;
+  }
+
+  function applyLanguage(nextLang){
+    lang=nextLang==='en'?'en':'zh';
+    try{window.localStorage?.setItem('lut_np3_lang',lang);}catch{}
+    const d=T();
+    if(document.documentElement)document.documentElement.lang=lang==='en'?'en':'zh-CN';
+    document.title=d.docTitle;
+    if($('langZh'))$('langZh').classList.toggle('active',lang==='zh');
+    if($('langEn'))$('langEn').classList.toggle('active',lang==='en');
+    const nodes=document.querySelectorAll?document.querySelectorAll('[data-i18n]'):[];
+    for(const el of nodes){
+      const k=el.getAttribute?.('data-i18n')||el.dataset?.i18n;
+      if(k&&typeof d[k]==='string')el.textContent=d[k];
+    }
+    if($('presetCount'))$('presetCount').textContent=d.presetCount(P.entries.length);
+    if($('presetPlaceholder'))$('presetPlaceholder').textContent=d.presetPlaceholder;
+    if($('presetName'))$('presetName').placeholder=d.namePlaceholder;
+    if($('exportHint'))$('exportHint').innerHTML=d.exportHint;
+    if(!busy&&$('progressText'))$('progressText').textContent=d.progStart;
+    if(!preLut&&$('preInfo'))$('preInfo').textContent=fitKey==='fitPreErr'?d.preInfoFailed:d.preInfoIdle;
+    for(const g of optgroups)g.el.label=d.groups[g.raw]||g.raw;
+    for(const o of presetOptions)o.el.textContent=lang==='en'&&NAME_EN[o.id]?NAME_EN[o.id]:o.raw;
+    renderFileBox();
+    showPresetInfo(sourcePreset);
+    spaceUI(false);
+    renderOrigCaption();
+    $('targetCaption').textContent=ready()?d.targetApplied:d.targetWait;
+    updateManualLabels();
+    refreshMetricsDisplay();
+    if(result)showWarnings(result.warnings);
+    fitState();
+    renderStatus();
+  }
+
+  function invalidate(clearPreview=false){
+    ++fitGeneration;if(fitTimer!==null)clearTimeout(fitTimer);fitTimer=null;queuedFit=false;
+    if(previewTimer!==null)clearTimeout(previewTimer);previewTimer=null;
+    result=null;baseParams=null;if(clearPreview){shownResult=null;activeParams=null;}
+    setToneSlidersEnabled(false);
+    $('download').disabled=true;
+    for(const id of ['rmse','p95','grayRmse','lowSatRmse','fidelity'])$(id).textContent='—';
+    $('warnings').hidden=true;
+    fitKey=ready()?'fitPending':cube?'fitNeedPre':'fitIdle';
+    refreshMetricsDisplay();fitState();updateControls();
+  }
   function queuePreview(){
     if(previewTimer!==null)clearTimeout(previewTimer);
     previewTimer=setTimeout(()=>{previewTimer=null;preview();},80);
@@ -3027,12 +3460,11 @@ return {serialize, deserialize};
   function scheduleFit(delay=300){
     if(fitTimer!==null)clearTimeout(fitTimer);fitTimer=null;queuedFit=false;
     if(!ready()){updateControls();return;}
-    const generation=fitGeneration;fitMessage='等待自动更新…';fitState();
+    const generation=fitGeneration;fitKey='fitPending';fitState();
     fitTimer=setTimeout(()=>{fitTimer=null;if(generation!==fitGeneration)return;queuedFit=true;void runQueuedFit();},delay);
-    updateControls();setStatus('正在准备自动拟合…');
+    updateControls();setStatusKey('stScheduled');
   }
   function settingsChanged(){invalidate();queuePreview();scheduleFit();}
-  function showWarnings(messages){$('warnings').replaceChildren(...messages.map(text=>{const p=document.createElement('p');p.textContent=text;return p;}));$('warnings').hidden=!messages.length;}
 
   function sampleChart(){
     const ctx=src.getContext('2d'),w=src.width,h=src.height;ctx.fillStyle='#d3d1c3';ctx.fillRect(0,0,w,h);
@@ -3050,37 +3482,30 @@ return {serialize, deserialize};
   }
   function preview(){
     draw($('original'));let target=null;
-    if(ready())try{target=C.makeTarget(cube,opts());}catch(e){setStatus(e.message,true);}
+    if(ready())try{target=C.makeTarget(cube,opts());}catch(e){setStatusError(e);}
     draw($('target'),target);
     const renderP=activeParams||shownResult?.params;
     if(renderP)draw($('fitted'),C.makeRenderer(renderP));
-    $('targetCaption').textContent=target?'已套用目标 LUT':'等待选择风格';
+    $('targetCaption').textContent=target?T().targetApplied:T().targetWait;
     fitState();
-  }
-  function showPresetInfo(p){
-    sourcePreset=p;$('filmPreset').value=p?p.id:'';
-    $('presetDesc').hidden=!p;
-    if(p)$('presetDesc').textContent=p.name+' · '+p.description;
   }
   function resetPresetSettings(){
     $('inputSpace').value=$('outputSpace').value='srgb';$('range').value='full';$('highlights').value='expand';$('exposure').value='0';$('strength').value='100';$('strengthValue').value='100%';
-    ++preVersion;preLut=null;$('preFile').value='';$('preInfo').textContent='需与主 LUT 输入一致';spaceUI(false);
+    ++preVersion;preLut=null;$('preFile').value='';$('preInfo').textContent=T().preInfoIdle;spaceUI(false);
   }
   async function loadLut(file,preset=null){
-    const version=++lutVersion;cube=null;sourceName='';showPresetInfo(null);resetToneOffsets();invalidate(true);fitMessage='正在读取 LUT…';fitState();setStatus('正在读取 LUT…');
+    const version=++lutVersion;cube=null;sourceName='';showPresetInfo(null);resetToneOffsets();invalidate(true);fitKey='fitReading';fitState();setStatusKey('stReading');
     try{
       if(!file||!file.name.toLowerCase().endsWith('.cube'))throw Error('请选择 .cube 文件。');
       if(file.size>32*1024*1024)throw Error('文件不能超过 32 MB。');
       const text=await file.text();if(version!==lutVersion)return;
-      cube=C.parseCube(text);sourceName=file.name;
-      $('fileTitle').textContent=preset?preset.name:file.name;
-      $('fileInfo').textContent=(cube.kind===3?cube.size+'³ · 3D':cube.size+' 点 · 1D')+' · '+Math.round(file.size/1024)+' KB';
+      cube=C.parseCube(text);cube._kb=Math.round(file.size/1024);sourceName=file.name;
       $('presetName').value=preset?preset.cameraName:file.name.replace(/\.cube$/i,'').replace(/[^\x20-\x7e]/g,'').slice(0,19)||'My LUT';
-      showPresetInfo(preset);preview();scheduleFit(0);
-      if(!ready()){fitMessage='请先加载匹配的前置 LUT';fitState();setStatus('LUT 已读取；加载前置 LUT 后自动拟合。');}
+      showPresetInfo(preset);renderFileBox();preview();scheduleFit(0);
+      if(!ready()){fitKey='fitNeedPre';fitState();setStatusKey('stWaitPre');}
     }catch(e){
       if(version!==lutVersion)return;
-      $('fileTitle').textContent='选择或拖入 .cube 文件';$('fileInfo').textContent='文件未加载';fitMessage='LUT 读取失败';setStatus(e.message,true);preview();updateControls();
+      fitKey='fitReadErr';renderFileBox();setStatusError(e);preview();updateControls();
     }
   }
 
@@ -3089,18 +3514,20 @@ return {serialize, deserialize};
   $('drop').addEventListener('dragleave',()=> $('drop').classList.remove('drag'));
   $('drop').addEventListener('drop',e=>{e.preventDefault();$('drop').classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&!f.name.toLowerCase().endsWith('.cube'))return loadPhoto(f);loadLut(f);});
 
-  $('presetCount').textContent=P.entries.length+' 款';
   for(const group of new Set(P.entries.map(p=>p.group))){
     const optgroup=document.createElement('optgroup');optgroup.label=group;
+    optgroups.push({el:optgroup,raw:group});
     for(const preset of P.entries.filter(p=>p.group===group)){
-      const option=document.createElement('option');option.value=preset.id;option.textContent=preset.name;optgroup.appendChild(option);
+      const option=document.createElement('option');option.value=preset.id;option.textContent=preset.name;
+      presetOptions.push({el:option,id:preset.id,raw:preset.name});
+      optgroup.appendChild(option);
     }
     $('filmPreset').appendChild(optgroup);
   }
   $('filmPreset').addEventListener('change',()=>{
     const id=$('filmPreset').value;
     if(!id){$('filmPreset').value=sourcePreset?sourcePreset.id:'';return;}
-    try{const {metadata}=P.get(id);resetPresetSettings();return loadLut(new File([P.cubeText(id)],id+'.cube',{type:'text/plain'}),metadata);}catch(e){setStatus(e.message,true);}
+    try{const {metadata}=P.get(id);resetPresetSettings();return loadLut(new File([P.cubeText(id)],id+'.cube',{type:'text/plain'}),metadata);}catch(e){setStatusError(e);}
   });
 
   $('preFile').addEventListener('change',async e=>{
@@ -3111,17 +3538,10 @@ return {serialize, deserialize};
       const text=await file.text();if(version!==preVersion)return;
       preLut=C.parseCube(text);$('preInfo').textContent=file.name;preview();scheduleFit(0);
     }catch(err){
-      if(version!==preVersion)return;$('preInfo').textContent='未加载';fitMessage='前置 LUT 未就绪';setStatus(err.message,true);fitState();updateControls();
+      if(version!==preVersion)return;$('preInfo').textContent=T().preInfoFailed;fitKey='fitPreErr';setStatusError(err);fitState();updateControls();
     }
   });
 
-  function spaceUI(resetOutput=true){
-    const mode=$('inputSpace').value,isLog=['nlog','flog','flog2','flog2c'].includes(mode);
-    $('logFields').hidden=!isLog;$('preField').hidden=mode!=='custom';
-    if(resetOutput)$('outputSpace').value=['srgb','flog','flog2','flog2c'].includes(mode)?'srgb':'rec709-g24';
-    const hint=isLog?'Log 模式会先将照片换算为场景光并编码至 '+(mode==='nlog'?'BT.2020 / N-Log':mode==='flog2c'?'F-Gamut C / F-Log2 C':mode==='flog2'?'F-Gamut / F-Log2':'F-Gamut / F-Log')+'。':mode==='custom'?'前置 CUBE 须为 sRGB → 主 LUT 的目标 Log 空间。':'';
-    $('spaceHint').textContent=hint;$('spaceHint').hidden=!hint;
-  }
   $('inputSpace').addEventListener('change',()=>{spaceUI();settingsChanged();});
   for(const id of ['outputSpace','range','highlights','exposure'])$(id).addEventListener('change',settingsChanged);
   if($('sceneWeight'))$('sceneWeight').addEventListener('change',settingsChanged);
@@ -3137,6 +3557,8 @@ return {serialize, deserialize};
       });
     }
   }
+  if($('langZh'))$('langZh').addEventListener('click',()=>applyLanguage('zh'));
+  if($('langEn'))$('langEn').addEventListener('click',()=>applyLanguage('en'));
 
   function decodeBlobViaImg(blob){
     const url=URL.createObjectURL(blob);
@@ -3173,34 +3595,34 @@ return {serialize, deserialize};
       if(!file)return;
       if(file.size>D.MAX_PHOTO_BYTES)throw Error('预览照片不能超过 256 MB。');
       const ext=D.extOf(file.name);
-      let caption='sRGB 参考',statusNote='已更换预览照片：'+(file.name||'剪贴板图像');
+      let nextKind='ref',nextCustom='';
       if(D.RAW_EXT.has(ext)){
-        setStatus('正在提取相机 RAW 内嵌预览图…');
+        setStatusKey('stRawLoading');
         const bytes=new Uint8Array(await file.arrayBuffer());if(version!==photoVersion)return;
         const rawPrev=D.extractRawPreviewJpeg(bytes);
         if(rawPrev){
           const img=await decodeBlobViaImg(new Blob([rawPrev.jpeg],{type:'image/jpeg'}));if(version!==photoVersion)return;
           renderImgToSrc(img,rawPrev.orientation);
-          caption='RAW 内嵌预览（含拍摄时优化校准）';
+          nextKind='raw';
         }else{
           const tiffRas=await D.decodeTiffRaster(bytes);if(version!==photoVersion)return;
-          if(!tiffRas)throw Error('无法从该 RAW 文件提取预览图。');
-          renderRgbaToSrc(tiffRas);caption=tiffRas.format+' 预览';
+          if(!tiffRas)throw Error(lang==='en'?'Could not extract preview from RAW file.':'无法从该 RAW 文件提取预览图。');
+          renderRgbaToSrc(tiffRas);nextKind='custom';nextCustom=tiffRas.format;
         }
       }else if(ext==='tif'||ext==='tiff'){
         const bytes=new Uint8Array(await file.arrayBuffer());if(version!==photoVersion)return;
         const tiffRas=await D.decodeTiffRaster(bytes);if(version!==photoVersion)return;
-        if(tiffRas){renderRgbaToSrc(tiffRas);caption=tiffRas.format+' · sRGB 参考';}
+        if(tiffRas){renderRgbaToSrc(tiffRas);nextKind='custom';nextCustom=tiffRas.format+' · sRGB';}
         else{
           const rawPrev=D.extractRawPreviewJpeg(bytes);
           const img=await decodeBlobViaImg(rawPrev?new Blob([rawPrev.jpeg],{type:'image/jpeg'}):file);if(version!==photoVersion)return;
-          renderImgToSrc(img,rawPrev?rawPrev.orientation:1);caption='TIFF · sRGB 参考';
+          renderImgToSrc(img,rawPrev?rawPrev.orientation:1);nextKind='custom';nextCustom='TIFF · sRGB';
         }
       }else if(['ppm','pgm','pnm','tga','hdr','pfm'].includes(ext)){
         const bytes=new Uint8Array(await file.arrayBuffer());if(version!==photoVersion)return;
         const dec=D.decodeNetpbm(bytes)||D.decodeHdrOrPfm(bytes)||D.decodeTga(bytes);
-        if(!dec)throw Error('无法解析该 '+ext.toUpperCase()+' 图像。');
-        renderRgbaToSrc(dec);caption=dec.kind==='hdr'?dec.format+'（色调映射）':dec.format+' · sRGB 参考';
+        if(!dec)throw Error(lang==='en'?'Could not decode image file.':'无法解析该图像。');
+        renderRgbaToSrc(dec);nextKind='custom';nextCustom=dec.format+' · sRGB';
       }else{
         try{
           const img=await decodeBlobViaImg(file);if(version!==photoVersion)return;
@@ -3208,23 +3630,23 @@ return {serialize, deserialize};
         }catch{
           const bytes=new Uint8Array(await file.arrayBuffer());if(version!==photoVersion)return;
           const tiffRas=await D.decodeTiffRaster(bytes);if(version!==photoVersion)return;
-          if(tiffRas){renderRgbaToSrc(tiffRas);caption=tiffRas.format+' · sRGB 参考';}
+          if(tiffRas){renderRgbaToSrc(tiffRas);nextKind='custom';nextCustom=tiffRas.format+' · sRGB';}
           else{
             const rawPrev=D.extractRawPreviewJpeg(bytes);
-            if(rawPrev){const img=await decodeBlobViaImg(new Blob([rawPrev.jpeg],{type:'image/jpeg'}));if(version!==photoVersion)return;renderImgToSrc(img,rawPrev.orientation);caption='内嵌预览 · sRGB 参考';}
+            if(rawPrev){const img=await decodeBlobViaImg(new Blob([rawPrev.jpeg],{type:'image/jpeg'}));if(version!==photoVersion)return;renderImgToSrc(img,rawPrev.orientation);nextKind='embed';}
             else{
               const dec=D.decodeNetpbm(bytes)||D.decodeHdrOrPfm(bytes)||D.decodeTga(bytes);
-              if(dec){renderRgbaToSrc(dec);caption=dec.format+' · sRGB 参考';}
-              else if(['heic','heif','hif'].includes(ext))throw Error('当前浏览器不支持直接解码 HEIC/HIF（Safari 可直接打开，或先转为 JPG/PNG）。');
-              else throw Error('无法读取该照片格式。');
+              if(dec){renderRgbaToSrc(dec);nextKind='custom';nextCustom=dec.format+' · sRGB';}
+              else if(['heic','heif','hif'].includes(ext))throw Error(lang==='en'?'HEIC/HIF requires Safari or conversion to JPG/PNG first.':'当前浏览器不支持直接解码 HEIC/HIF（Safari 可直接打开，或先转为 JPG/PNG）。');
+              else throw Error(lang==='en'?'Unsupported image format.':'无法读取该照片格式。');
             }
           }
         }
       }
-      if($('origCaption'))$('origCaption').textContent=caption;
+      origKind=nextKind;origCustom=nextCustom;renderOrigCaption();
       if($('sceneWeight')?.checked&&ready())settingsChanged();
-      else{preview();if(!busy)setStatus(statusNote);}
-    }catch(err){if(version===photoVersion)setStatus(err.message,true);}
+      else{preview();if(!busy)setStatusKey('stPhotoLoaded',file.name);}
+    }catch(err){if(version===photoVersion)setStatusError(err);}
   }
   $('photo').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';return loadPhoto(f);});
   $('previewArea').addEventListener('dragover',e=>{e.preventDefault();$('previewArea').classList.add('drag');});
@@ -3235,9 +3657,9 @@ return {serialize, deserialize};
   async function runQueuedFit(){
     if(busy||!queuedFit||!ready())return;queuedFit=false;
     const generation=fitGeneration,sourceCube=cube,settings=opts(),filename=sourceName,preset=sourcePreset;
-    busy=true;activeGeneration=generation;fitMessage='正在自动拟合…';fitState();updateControls();$('progress').value=0;setStatus('正在拟合曲线、分色与色彩分级…');
+    busy=true;activeGeneration=generation;fitKey='fitRunning';fitState();updateControls();$('progress').value=0;if($('progressText'))$('progressText').textContent=T().progStart;setStatusKey('stFitting');
     try{
-      const candidate=await C.fit(sourceCube,settings,p=>{if(generation!==fitGeneration)return;$('progress').value=p.percent;$('progressText').textContent='拟合 '+p.percent+'%';},()=>generation!==fitGeneration);
+      const candidate=await C.fit(sourceCube,settings,p=>{if(generation!==fitGeneration)return;$('progress').value=p.percent;$('progressText').textContent=T().progPct(p.percent);},()=>generation!==fitGeneration);
       if(generation!==fitGeneration)return;
       C.encodeNP3(candidate.params,'Validation');candidate.validation.np3Structure=true;candidate.source.filename=filename;if(preset)candidate.source.preset={...preset};
       result=shownResult=candidate;
@@ -3247,27 +3669,29 @@ return {serialize, deserialize};
       refreshMetricsDisplay();
       showWarnings(result.warnings);
       $('download').disabled=false;
-      setStatus('拟合完成，可直接导出 NP3 或展开下方「机内质感与微调」精修。');
+      setStatusKey('stDone');
       if(previewTimer!==null)clearTimeout(previewTimer);previewTimer=null;preview();
     }catch(e){
-      if(generation===fitGeneration){fitMessage='拟合失败，可点击重新拟合';setStatus(e.message,true);fitState();}
+      if(generation===fitGeneration){fitKey='fitFailed';setStatusError(e);fitState();}
     }finally{busy=false;activeGeneration=null;updateControls();if(queuedFit)void runQueuedFit();}
   }
   $('convert').addEventListener('click',()=>{if(!ready())return;invalidate();scheduleFit(0);});
-  $('cancel').addEventListener('click',()=>{invalidate();fitMessage='已取消，点击左侧重新拟合';preview();setStatus('已取消拟合。');});
+  $('cancel').addEventListener('click',()=>{invalidate();fitKey='fitCancelled';preview();setStatusKey('stCancelled');});
 
   function save(data,type,name){const blob=new Blob([data],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);}
   function filename(){const slot=Number($('slot').value);if(!Number.isInteger(slot)||slot<1||slot>99)throw Error('卡槽编号须为 1–99。');return 'PICCON'+String(slot).padStart(2,'0');}
   $('download').addEventListener('click',()=>{
     if(!result||!activeParams)return;
     try{
-      save(C.encodeNP3(activeParams,$('presetName').value),'application/octet-stream',filename()+'.NP3');
-      setStatus('已导出 '+filename()+'.NP3（名称：'+$('presetName').value+'）。');
-    }catch(e){setStatus(e.message,true);}
+      const fn=filename();
+      save(C.encodeNP3(activeParams,$('presetName').value),'application/octet-stream',fn+'.NP3');
+      setStatusKey('stExported',fn,$('presetName').value);
+    }catch(e){setStatusError(e);}
   });
 
-  updateManualLabels();
-  sampleChart();preview();updateControls();
+  sampleChart();
+  applyLanguage(lang);
+  preview();updateControls();
 })();
 </script>
 <script type="text/plain" id="third-party-license">third_party/nikon-flexible-color-picture-control/LICENSE
