@@ -19,7 +19,7 @@
 3. 可拖入或粘贴自己的照片预览效果（支持 `JPG`、`PNG`、`WebP`、`AVIF`、`TIFF` 以及 `.NEF` / `.RAF` / `.ARW` / `.CR3` / `.DNG` 等主流相机 RAW 内嵌预览）。
 4. 按需开启可选功能：
    - **按当前预览照片色彩优化**：遇到超出尼康参数全局表达能力的强风格 LUT 时，优先贴合当前画面中的色彩分布。
-   - **机内质感与微调**（默认折叠）：按需展开，可在保持中性灰不偏色的前提下微调饱和度、暗部黑位／褪色感、对比度，或设置写入机内 `.NP3` 的清晰度与锐化（含标准／胶片柔化／街拍硬朗快捷预设）。
+   - **机内质感与微调**（默认折叠）：按需展开，支持微调**曝光补偿**、对比度、暗部黑位／褪色感、**白平衡（色温冷暖／色调绿品）**、**色相偏移**、饱和度偏移，以及写入机内 `.NP3` 的清晰度与锐化（含标准／胶片柔化／街拍硬朗快捷预设）。
 5. 点击 **下载 NP3**，将生成的 `PICCON01.NP3`～`PICCON99.NP3` 放入存储卡 `NIKON/CUSTOMPC/` 目录，在支持 Flexible Color 的尼康机身（如 Z8 C 3.00+、Z6 III、Zf v2.0+、Z50 II、Z5 II 等）「管理优化校准 → 载入/保存 → 复制到照相机」中导入，或导入尼康工坊（NX Studio）使用。
 
 <a id="compare"></a>
@@ -90,7 +90,7 @@ A single-file, 100% client-side converter that fits `.cube` LUTs into **Nikon Im
 3. Drop or paste your own photo to preview the look (supports `JPG`, `PNG`, `WebP`, `AVIF`, `TIFF`, and embedded previews from `.NEF` / `.RAF` / `.ARW` / `.CR3` / `.DNG` camera RAW files).
 4. Optional controls:
    - **Optimize for Current Photo**: Prioritizes colors present in your current preview image when fitting strong stylistic LUTs that exceed global parameter limits.
-   - **In-Camera Texture & Fine-Tune** *(collapsed by default)*: Expand to adjust saturation, black point / matte fade, and contrast without introducing neutral gray casts, or configure in-camera Clarity and Sharpening written directly into the `.NP3` file (`Standard` / `Soft Film` / `Crisp Street` quick presets included).
+   - **In-Camera Texture & Fine-Tune** *(collapsed by default)*: Expand to adjust **Exposure Offset**, Contrast, Black Point / Matte, **White Balance (Temp & Tint)**, **Hue Shift**, and Saturation, or configure in-camera Clarity and Sharpening written directly into the `.NP3` file (`Standard` / `Soft Film` / `Crisp Street` quick presets included).
 5. Click **Download NP3 ↓**, copy the generated `PICCON01.NP3`–`PICCON99.NP3` file into `NIKON/CUSTOMPC/` on your memory card, and import it on Flexible Color-capable Nikon cameras (Z8 FW 3.00+, Z6 III, Zf FW 2.0+, Z50 II, Z5 II, etc.) via **Manage Picture Control → Load/Save → Copy to camera**, or load it directly in **Nikon NX Studio**.
 
 ### Sample Comparisons (Original / Target LUT / Exported NP3)
