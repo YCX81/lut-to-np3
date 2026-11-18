@@ -1,6 +1,6 @@
 # LUT → NP3
 
-**[简体中文](#zh) · [English](#en)**
+**[简体中文](#zh) · [English](#en) · [在线使用 / Live Demo ↗](https://ycx81.github.io/lut-to-np3/)**
 
 ---
 
@@ -8,7 +8,7 @@
 
 ## 简体中文
 
-将 `.cube` LUT 转换为尼康云创 / Flexible Color（`.NP3` `0310`）优化校准文件的单文件离线工具。无需安装任何环境或联网，直接用浏览器打开 [`LUT-to-NP3.html`](./LUT-to-NP3.html) 即可使用（右上角支持 **中文 / EN** 界面切换）。
+将 `.cube` LUT 转换为尼康云创 / Flexible Color（`.NP3` `0310`）优化校准文件的单文件离线工具。无需安装任何环境：可直接点击 **[在线打开（GitHub Pages）↗](https://ycx81.github.io/lut-to-np3/)** 使用，也可下载 [`LUT-to-NP3.html`](./LUT-to-NP3.html) 本地离线打开（所有照片与 LUT 均在浏览器本地处理，不上传服务器；右上角支持 **中文 / EN** 切换）。
 
 ![界面预览](assets/ui.jpg)
 
@@ -73,7 +73,7 @@
 
 ## English
 
-A single-file, 100% offline converter that fits `.cube` LUTs into **Nikon Imaging Cloud / Flexible Color (`.NP3` `0310`)** Picture Control files. No installation, server, or internet connection required — simply open [`LUT-to-NP3.html`](./LUT-to-NP3.html) in your browser (supports **中文 / EN** language switching in the top-right corner).
+A single-file, 100% client-side converter that fits `.cube` LUTs into **Nikon Imaging Cloud / Flexible Color (`.NP3` `0310`)** Picture Control files. Launch directly via **[GitHub Pages (Live Web App) ↗](https://ycx81.github.io/lut-to-np3/)**, or download [`LUT-to-NP3.html`](./LUT-to-NP3.html) to run completely offline in your browser (all photos and LUTs stay on your device; supports **中文 / EN** switching in the top-right corner).
 
 ![UI Overview](assets/ui-en.jpg)
 
