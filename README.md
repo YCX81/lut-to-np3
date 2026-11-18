@@ -28,6 +28,12 @@
 
 以下对比均由 Nikon Z8 `.NEF` 原片经本工具拟合并导出 `.NP3` 后，通过尼康工坊（NX Studio）渲染引擎直接输出对比：
 
+#### Teal & Orange · 青橙电影色调（按当前照片优化）
+![Teal & Orange](assets/compare-09.jpg)
+
+#### Kodak Tri-X 400 Red Filter · 高反差红滤镜黑白
+![Kodak Tri-X 400 Red Filter](assets/compare-10.jpg)
+
 #### Fujifilm PROVIA
 ![Fujifilm PROVIA](assets/compare-01.jpg)
 
@@ -89,7 +95,7 @@ A single-file, 100% client-side converter that fits `.cube` LUTs into **Nikon Im
 
 ### Sample Comparisons (Original / Target LUT / Exported NP3)
 
-All 8 triptychs ([view comparisons above ↑](#compare)) are rendered directly from Nikon Z8 `.NEF` RAW files through Nikon NX Studio's engine after fitting and exporting `.NP3` files with this tool (`Original` | `Target LUT` | `NP3`).
+All 10 triptychs ([view comparisons above ↑](#compare)) are rendered directly from Nikon Z8 `.NEF` RAW files through Nikon NX Studio's engine after fitting and exporting `.NP3` files with this tool (`Original` | `Target LUT` | `NP3`).
 
 ### Built-in Presets (50)
 
