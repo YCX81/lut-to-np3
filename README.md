@@ -14,8 +14,8 @@
 
 ### 使用方法
 
-1. 用 Chrome / Edge / Safari 打开 **`LUT-to-NP3.html`**。
-2. 拖入自定义 `.cube` 文件，或直接在下拉菜单选用内置的 **50 款胶片／相机模拟预设**。
+1. 在线打开或用 Chrome / Edge / Safari 打开 **`LUT-to-NP3.html`**。
+2. 拖入任意自定义 `.cube` 文件，或在下拉菜单直接选用内置的 **34 款 MIT 开源胶片预设**。
 3. 可拖入或粘贴自己的照片预览效果（支持 `JPG`、`PNG`、`WebP`、`AVIF`、`TIFF` 以及 `.NEF` / `.RAF` / `.ARW` / `.CR3` / `.DNG` 等主流相机 RAW 内嵌预览）。
 4. 按需开启可选功能：
    - **按当前预览照片色彩优化**：遇到超出尼康参数全局表达能力的强风格 LUT 时，优先贴合当前画面中的色彩分布。
@@ -26,13 +26,7 @@
 
 ### 转换对比（原图 / 目标 LUT / 导出 NP3）
 
-以下对比均由 Nikon Z8 `.NEF` 原片经本工具拟合并导出 `.NP3` 后，通过尼康工坊（NX Studio）渲染引擎直接输出对比：
-
-#### Teal & Orange · 青橙电影色调（按当前照片优化）
-![Teal & Orange](assets/compare-09.jpg)
-
-#### Kodak Tri-X 400 Red Filter · 高反差红滤镜黑白
-![Kodak Tri-X 400 Red Filter](assets/compare-10.jpg)
+以下对比均由 Nikon Z8 `.NEF` 原片经本工具拟合并导出 `.NP3` 后，通过尼康工坊（NX Studio）渲染引擎直接输出对比（包含用户自备厂商 LUT 及内置开源 LUT 的实测效果）：
 
 #### Fujifilm PROVIA
 ![Fujifilm PROVIA](assets/compare-01.jpg)
@@ -58,20 +52,32 @@
 #### Kodak Vision3 250D / 2383
 ![Kodak Vision3 250D / 2383](assets/compare-08.jpg)
 
-### 内置预设（50 款）
+### 内置开源预设（34 款 · 全部 MIT 许可）
 
 | 分类 | 预设列表 |
 | :--- | :--- |
-| **Fujifilm 胶片模拟（15）** | PROVIA、Velvia、ASTIA、Classic Chrome、Classic Neg、REALA ACE、PRO Neg. Std、PRO Neg. Hi、ETERNA、ETERNA Bleach Bypass、Wide Dynamic Range、ACROS、ACROS+R、ACROS+Ye、ACROS+G |
-| **Ricoh GR 胶片模拟（5）** | GR Positive Film、GR Negative Film、GR Vivid、GR Monotone、GR Soft Mono |
+| **Fujifilm 开源模拟（4）** | PRO Neg. Hi、ACROS+R、ACROS+Ye、ACROS+G |
 | **电影胶片与印片（5）** | Kodak Vision3 50D / 2383、Vision3 250D / 2383、Vision3 500T / 2383、CineStill 800T (5219)、Fuji Eterna Vivid / 3513 |
 | **GRKit 同源配方（6）** | Kodak Aerocolor IV、Fuji Eterna 500T / 3523XD、Kodak Tri-X 400、Tri-X 红滤镜、Eastman Double-X 5222、Ilford HP5 Plus 400 |
 | **经典胶卷精选（19）** | Portra 160、Portra 400、Portra 800、Gold 200、Ektar 100、Ektachrome E100D、Kodachrome 64、Fuji Pro 160C、Pro 400H、Fuji Pro 800Z、Provia 400X、Astia 100F、Velvia 50、Acros 100、Agfa Vista 200、Agfa Precisa 100、Kodak T-Max 400、Ilford Delta 100、Ilford XP2 |
 
-### 说明
+#### 更多厂商官方 LUT（需自行下载后拖入）
+
+出于厂商授权条款限制，本公开版未直接内置富士官方与理光官方色彩文件；你可前往以下官方页面获取 `.cube` LUT 或参考资料，下载后直接拖入本工具转换（已内置 `F-Log` / `F-Log2` / `F-Log2 C` 与 `sRGB` 输入空间支持）：
+
+- **Fujifilm 官方 LUT 下载页**：https://www.fujifilm-x.com/global/support/download/lut/
+- **Ricoh GR 图像控制官方说明**：https://www.ricoh-imaging.co.jp/english/products/gr-3/feature/03/
+
+### 说明与开源致谢
 
 - `.NP3`（Flexible Color `0310`）并非任意 3D LUT 容器，而是由 17 点三次样条亮度曲线、全局饱和度、8 色混合器与三段色彩分级组成的参数配置；本工具基于尼康工坊渲染引擎逐项实测标定的物理模型与双专家残差网络进行感知拟合。
 - 支持 `sRGB`、`Rec.709`、`Nikon N-Log`、`Fujifilm F-Log / F-Log2 / F-Log2 C` 及自定义前置 Log 转换表输入。
+- 本项目使用并遵守以下 **MIT 许可**开源项目（完整许可文本亦保留于 `LUT-to-NP3.html` 内的 `#third-party-license` 区块）：
+  - [`nikon-flexible-color-picture-control`](https://github.com/tomikawa/nikon-flexible-color-picture-control) — Copyright (c) 2025 TOMIKAWA Sotaro (**MIT**)，用于 `.NP3` 二进制序列化与校验。
+  - [`spectral_film_lut`](https://github.com/JanLohse/spectral_film_lut) — Copyright (c) Jan Lohse (**MIT**)，电影胶片与印片光谱模型预设来源。
+  - [`GRKit`](https://github.com/ahonn/GRKit) — Copyright (c) ahonn (**MIT**)，GRKit 同源胶片配方来源。
+  - [`t3mujinpack`](https://github.com/t3mujinpack/t3mujinpack) — Copyright (c) João Almeida (**MIT**)，经典胶卷 HaldCLUT 来源。
+  - [`Film-Luts`](https://github.com/YahiaAngelo/Film-Luts) — Copyright (c) Yahia Angelo (**MIT**)，开源胶片与 X-Trans III 模拟 LUT 来源。
 
 ---
 
@@ -85,8 +91,8 @@ A single-file, 100% client-side converter that fits `.cube` LUTs into **Nikon Im
 
 ### How to Use
 
-1. Open **`LUT-to-NP3.html`** in Chrome, Edge, or Safari.
-2. Drop a custom `.cube` LUT file, or choose one of the **50 built-in film & camera simulation presets** from the dropdown.
+1. Open the live page or launch **`LUT-to-NP3.html`** in Chrome, Edge, or Safari.
+2. Drop any custom `.cube` LUT file, or choose one of the **34 built-in MIT-licensed film presets** from the dropdown.
 3. Drop or paste your own photo to preview the look (supports `JPG`, `PNG`, `WebP`, `AVIF`, `TIFF`, and embedded previews from `.NEF` / `.RAF` / `.ARW` / `.CR3` / `.DNG` camera RAW files).
 4. Optional controls:
    - **Optimize for Current Photo**: Prioritizes colors present in your current preview image when fitting strong stylistic LUTs that exceed global parameter limits.
@@ -95,19 +101,31 @@ A single-file, 100% client-side converter that fits `.cube` LUTs into **Nikon Im
 
 ### Sample Comparisons (Original / Target LUT / Exported NP3)
 
-All 10 triptychs ([view comparisons above ↑](#compare)) are rendered directly from Nikon Z8 `.NEF` RAW files through Nikon NX Studio's engine after fitting and exporting `.NP3` files with this tool (`Original` | `Target LUT` | `NP3`).
+All 8 triptychs ([view comparisons above ↑](#compare)) are rendered directly from Nikon Z8 `.NEF` RAW files through Nikon NX Studio's engine after fitting and exporting `.NP3` files with this tool (`Original` | `Target LUT` | `NP3`).
 
-### Built-in Presets (50)
+### Built-in Presets (34 · All MIT-Licensed)
 
 | Category | Presets |
 | :--- | :--- |
-| **Fujifilm Film Simulations (15)** | PROVIA, Velvia, ASTIA, Classic Chrome, Classic Neg, REALA ACE, PRO Neg. Std, PRO Neg. Hi, ETERNA, ETERNA Bleach Bypass, Wide Dynamic Range, ACROS, ACROS+R, ACROS+Ye, ACROS+G |
-| **Ricoh GR Looks (5)** | GR Positive Film, GR Negative Film, GR Vivid, GR Monotone, GR Soft Mono |
+| **Fujifilm Open-Source Looks (4)** | PRO Neg. Hi, ACROS+R, ACROS+Ye, ACROS+G |
 | **Cinema & Print Film (5)** | Kodak Vision3 50D / 2383, Vision3 250D / 2383, Vision3 500T / 2383, CineStill 800T (5219), Fuji Eterna Vivid / 3513 |
 | **GRKit Film Recipes (6)** | Kodak Aerocolor IV, Fuji Eterna 500T / 3523XD, Kodak Tri-X 400, Tri-X / Red Filter, Eastman Double-X 5222, Ilford HP5 Plus 400 |
 | **Classic Film Stocks (19)** | Portra 160, Portra 400, Portra 800, Gold 200, Ektar 100, Ektachrome E100D, Kodachrome 64, Fuji Pro 160C, Pro 400H, Fuji Pro 800Z, Provia 400X, Astia 100F, Velvia 50, Acros 100, Agfa Vista 200, Agfa Precisa 100, Kodak T-Max 400, Ilford Delta 100, Ilford XP2 |
 
-### Technical Notes
+#### Official Vendor LUTs (Download Separately)
 
-- `.NP3` (Flexible Color `0310`) is not an arbitrary 3D LUT container — it is a parametric Picture Control consisting of a 17-point natural cubic spline tone curve, global saturation, an 8-hue Color Blender, and 3-zone Color Grading. This tool fits looks perceptually using a physical forward model and a dual-expert residual network calibrated directly against Nikon NX Studio's rendering engine.
+To respect vendor licensing terms, proprietary Fujifilm and Ricoh LUT files are not bundled in this public distribution. You can download official `.cube` LUTs directly from the vendors and drop them into the app (`F-Log` / `F-Log2` / `F-Log2 C` and `sRGB` input spaces are built in):
+
+- **Fujifilm Official LUT Downloads**: https://www.fujifilm-x.com/global/support/download/lut/
+- **Ricoh GR Image Control Reference**: https://www.ricoh-imaging.co.jp/english/products/gr-3/feature/03/
+
+### Technical Notes & Third-Party Licenses
+
+- `.NP3` (Flexible Color `0310`) is a parametric Picture Control consisting of a 17-point natural cubic spline tone curve, global saturation, an 8-hue Color Blender, and 3-zone Color Grading. This tool fits looks perceptually using a physics-based forward model and a dual-expert residual MLP calibrated directly against Nikon NX Studio's rendering engine.
 - Supports `sRGB`, `Rec.709`, `Nikon N-Log`, `Fujifilm F-Log / F-Log2 / F-Log2 C`, and custom Pre-LUT Log transforms.
+- **Open-Source Attributions (MIT License)** — full license texts are also embedded inside `LUT-to-NP3.html` (`#third-party-license`):
+  - [`nikon-flexible-color-picture-control`](https://github.com/tomikawa/nikon-flexible-color-picture-control) — Copyright (c) 2025 TOMIKAWA Sotaro (**MIT**) — `.NP3` binary serialization.
+  - [`spectral_film_lut`](https://github.com/JanLohse/spectral_film_lut) — Copyright (c) Jan Lohse (**MIT**) — Cinema & print film LUTs.
+  - [`GRKit`](https://github.com/ahonn/GRKit) — Copyright (c) ahonn (**MIT**) — GRKit film recipes.
+  - [`t3mujinpack`](https://github.com/t3mujinpack/t3mujinpack) — Copyright (c) João Almeida (**MIT**) — Classic film stock HaldCLUTs.
+  - [`Film-Luts`](https://github.com/YahiaAngelo/Film-Luts) — Copyright (c) Yahia Angelo (**MIT**) — Open-source film & X-Trans III LUTs.
