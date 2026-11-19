@@ -66,23 +66,29 @@ progress{width:100%;margin-top:12px;height:4px;accent-color:var(--orange)}
 .photo-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
 .photo-hint{font-size:10.5px;color:var(--muted)}
 .image-button{font-size:11px;border:1px solid #c5c9c0;padding:6px 12px;border-radius:5px;background:var(--white)}
-.photo-meta-bar{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;flex-wrap:wrap;padding:8px 12px;margin:0 0 12px;border-radius:7px;border:1px solid var(--line);background:var(--white);font-size:11.5px;line-height:1.45;color:var(--ink)}
+.photo-meta-bar{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;padding:6px 11px;margin:0 0 11px;border-radius:7px;border:1px solid var(--line);background:var(--white);font-size:11px;line-height:1.4;color:var(--ink)}
 .photo-meta-bar.ok{background:#f2f6f1;border-color:#d4e0d4;color:#274a39}
 .photo-meta-bar.info{background:#f5f4ef;border-color:#d8dbd2;color:#3d4441}
 .photo-meta-bar.warn{background:#f7eadb;border-color:#e4caa8;color:#7c4d2b}
-.photo-meta-info{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 280px}
-.photo-meta-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--muted)}
+.photo-meta-info{display:flex;align-items:center;gap:7px;min-width:0;flex:1 1 220px}
+.photo-meta-dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--muted)}
 .photo-meta-bar.ok .photo-meta-dot{background:var(--green)}
 .photo-meta-bar.info .photo-meta-dot{background:#5c6b66}
 .photo-meta-bar.warn .photo-meta-dot{background:var(--orange)}
 #photoMetaText{overflow-wrap:anywhere}
-.photo-meta-mode{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);flex:none;white-space:nowrap}
-.photo-meta-mode select{padding:4px 8px;border:1px solid #cdd2c8;border-radius:5px;background:var(--white);color:var(--ink);font-size:11px;max-width:260px}
+.photo-meta-mode{display:inline-flex;align-items:center;flex:none;white-space:nowrap}
+.photo-meta-mode select{padding:3px 7px;border:1px solid #cdd2c8;border-radius:5px;background:var(--white);color:var(--ink);font-size:11px;max-width:190px}
 .photo-meta-mode select option:disabled{color:#a8ada8}
 .previews{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 figure{margin:0;min-width:0}
-.canvas-wrap{border-radius:7px;overflow:hidden;background:#d3d7cf;aspect-ratio:4/5;display:flex;align-items:center;justify-content:center}
+.canvas-wrap{position:relative;border-radius:7px;overflow:hidden;background:#d3d7cf;aspect-ratio:4/5;display:flex;align-items:center;justify-content:center}
 canvas{width:100%;height:100%;object-fit:contain;display:block}
+.canvas-save{position:absolute;right:8px;bottom:8px;width:30px;height:30px;padding:0;border:1px solid rgba(255,254,250,.28);border-radius:7px;background:rgba(35,39,38,.74);color:#fffefa;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:grid;place-items:center;opacity:0;transform:translateY(3px) scale(.94);pointer-events:none;transition:opacity .16s cubic-bezier(.2,0,0,1),transform .16s cubic-bezier(.2,0,0,1),background-color .14s ease}
+.canvas-wrap:hover .canvas-save,.canvas-wrap:focus-within .canvas-save,.canvas-save:focus-visible,.canvas-save.busy{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+.canvas-save:hover:not(:disabled){background:rgba(35,39,38,.92)}
+.canvas-save.busy{animation:savePulse .85s ease-in-out infinite;cursor:wait}
+@keyframes savePulse{0%,100%{opacity:.95}50%{opacity:.42}}
+@media(hover:none){.canvas-save{opacity:.76;transform:none;pointer-events:auto}}
 .fit-wrap{position:relative}
 .fit-overlay{position:absolute;top:50%;left:12px;right:12px;transform:translateY(-50%);padding:11px 10px;text-align:center;color:var(--ink);background:rgba(255,254,250,.93);border:1px solid var(--line);border-radius:6px;font-size:12px;box-shadow:0 3px 14px #272b2b12}
 figcaption{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:8px}
@@ -208,7 +214,7 @@ figcaption>small{font-size:10px;color:var(--muted)}
       <div class="preview-heading">
         <h2 data-i18n="compareHeading">效果对比</h2>
         <div class="photo-controls">
-          <small class="photo-hint" data-i18n="photoHint">可直接拖入或粘贴 JPG / PNG / TIFF / NEF / RAF / ARW / CR3 / DNG</small>
+          <small class="photo-hint" data-i18n="photoHint">拖入或粘贴照片 / RAW</small>
           <label class="image-button"><span data-i18n="changePhotoBtn">换一张照片</span><input type="file" id="photo" accept="image/*,.jpg,.jpeg,.png,.webp,.avif,.heic,.heif,.hif,.tif,.tiff,.bmp,.gif,.nef,.nrw,.raf,.arw,.cr2,.cr3,.dng,.orf,.rw2,.pef,.srw,.3fr,.iiq,.rwl,.tga,.ppm,.pgm,.pnm,.hdr,.pfm" aria-label="Change preview photo"></label>
         </div>
       </div>
@@ -218,20 +224,19 @@ figcaption>small{font-size:10px;color:var(--muted)}
           <span class="photo-meta-dot" aria-hidden="true"></span>
           <span id="photoMetaText"></span>
         </div>
-        <label class="photo-meta-mode">
-          <span data-i18n="photoBaseLabel">原图基准</span>
+        <div class="photo-meta-mode">
           <select id="photoBaseMode" aria-label="Photo baseline mode">
-            <option value="auto" id="photoBaseOptAuto" data-i18n="baseModeAuto" selected>自动还原 ZeroFC 基准（推荐）</option>
-            <option value="bayer" id="photoBaseOptBayer" data-i18n="baseModeBayer" disabled>纯原始 RAW 解码（Bayer → ZeroFC）</option>
-            <option value="embed" id="photoBaseOptEmbed" data-i18n="baseModeEmbed">保留原图内嵌预览（不剥离）</option>
+            <option value="auto" id="photoBaseOptAuto" data-i18n="baseModeAuto" selected>自动还原 ZeroFC</option>
+            <option value="bayer" id="photoBaseOptBayer" data-i18n="baseModeBayer" disabled>原始 RAW (Bayer)</option>
+            <option value="embed" id="photoBaseOptEmbed" data-i18n="baseModeEmbed">原图预览</option>
           </select>
-        </label>
+        </div>
       </div>
 
       <div class="previews">
-        <figure><div class="canvas-wrap"><canvas id="original"></canvas></div><figcaption><span data-i18n="fig1">01 / 原图</span><small id="origCaption">sRGB 参考</small></figcaption></figure>
-        <figure><div class="canvas-wrap"><canvas id="target"></canvas></div><figcaption><span data-i18n="fig2">02 / 目标 LUT</span><small id="targetCaption">等待选择风格</small></figcaption></figure>
-        <figure><div class="canvas-wrap fit-wrap"><canvas id="fitted" hidden></canvas><div id="fitOverlay" class="fit-overlay">选择风格后自动生成预览</div></div><figcaption><span data-i18n="fig3">03 / NP3 效果预览</span><small id="fitCaption">等待自动拟合</small></figcaption></figure>
+        <figure><div class="canvas-wrap"><canvas id="original"></canvas><button type="button" class="canvas-save" id="saveOrig" title="保存高清 JPG (95%)" aria-label="保存高清原图"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v7.5m0 0-3-3m3 3 3-3M3 13h10"/></svg></button></div><figcaption><span data-i18n="fig1">01 / 原图</span><small id="origCaption">sRGB 参考</small></figcaption></figure>
+        <figure><div class="canvas-wrap"><canvas id="target"></canvas><button type="button" class="canvas-save" id="saveTarget" title="保存高清 JPG (95%)" aria-label="保存高清目标 LUT 图" hidden><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v7.5m0 0-3-3m3 3 3-3M3 13h10"/></svg></button></div><figcaption><span data-i18n="fig2">02 / 目标 LUT</span><small id="targetCaption">等待选择风格</small></figcaption></figure>
+        <figure><div class="canvas-wrap fit-wrap"><canvas id="fitted" hidden></canvas><div id="fitOverlay" class="fit-overlay">选择风格后自动生成预览</div><button type="button" class="canvas-save" id="saveFitted" title="保存高清 JPG (95%)" aria-label="保存高清 NP3 预览图" hidden><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v7.5m0 0-3-3m3 3 3-3M3 13h10"/></svg></button></div><figcaption><span data-i18n="fig3">03 / NP3 效果预览</span><small id="fitCaption">等待自动拟合</small></figcaption></figure>
       </div>
 
       <div class="metrics" id="metrics">
@@ -2489,6 +2494,7 @@ return {serialize, deserialize};
     const v = x <= 0 ? 0 : x;
     return v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
   };
+  const clamp01 = x => x <= 0 ? 0 : x >= 1 ? 1 : x;
   const clampByte = x => x < 0 ? 0 : x > 255 ? 255 : Math.round(x);
 
   // Read EXIF Orientation (1..8) inside a JPEG buffer (first 64 KB) so we never double-rotate
@@ -3996,12 +4002,64 @@ return {serialize, deserialize};
     return {size: S, data, ms: nowMs() - t0};
   }
 
+  // Bake any sRGB [0..1]^3 transform into a compact 3D LUT for fast tetrahedral preview & 4K export
+  function bakeLut3D(fn, size = 33) {
+    const S = Math.max(5, Math.min(65, size | 0));
+    const data = new Float32Array(S * S * S * 3);
+    const inv = 1 / (S - 1);
+    const rgb = [0, 0, 0];
+    let pos = 0;
+    for (let bi = 0; bi < S; bi++) {
+      rgb[2] = bi * inv;
+      for (let gi = 0; gi < S; gi++) {
+        rgb[1] = gi * inv;
+        for (let ri = 0; ri < S; ri++) {
+          rgb[0] = ri * inv;
+          const out = fn(rgb);
+          data[pos++] = clamp01(out[0]);
+          data[pos++] = clamp01(out[1]);
+          data[pos++] = clamp01(out[2]);
+        }
+      }
+    }
+    return {size: S, data};
+  }
+
+  // Sample a 3D LUT at normalized [0..1] RGB via tetrahedral interpolation (for floating-point composition)
+  function sampleLut3D(lut, rgb) {
+    const S = lut.size, d = lut.data, nm1 = S - 1, maxIdx = S - 2;
+    const sR = 3, sG = S * 3, sB = S * S * 3;
+    const rx = clamp01(rgb[0]) * nm1, gx = clamp01(rgb[1]) * nm1, bx = clamp01(rgb[2]) * nm1;
+    const r0 = rx >= nm1 ? maxIdx : (rx | 0);
+    const g0 = gx >= nm1 ? maxIdx : (gx | 0);
+    const b0 = bx >= nm1 ? maxIdx : (bx | 0);
+    const dr = rx - r0, dg = gx - g0, db = bx - b0;
+    const i000 = b0 * sB + g0 * sG + r0 * sR;
+    const i111 = i000 + sR + sG + sB;
+    let iA, iB, w1, w2, w3;
+    if (dr >= dg) {
+      if (dg >= db) { iA = i000 + sR; iB = iA + sG; w1 = dr; w2 = dg; w3 = db; }
+      else if (dr >= db) { iA = i000 + sR; iB = iA + sB; w1 = dr; w2 = db; w3 = dg; }
+      else { iA = i000 + sB; iB = iA + sR; w1 = db; w2 = dr; w3 = dg; }
+    } else {
+      if (db >= dg) { iA = i000 + sB; iB = iA + sG; w1 = db; w2 = dg; w3 = dr; }
+      else if (db >= dr) { iA = i000 + sG; iB = iA + sB; w1 = dg; w2 = db; w3 = dr; }
+      else { iA = i000 + sG; iB = iA + sR; w1 = dg; w2 = dr; w3 = db; }
+    }
+    const w0 = 1 - w1, wA = w1 - w2, wB = w2 - w3;
+    return [
+      w0 * d[i000]     + wA * d[iA]     + wB * d[iB]     + w3 * d[i111],
+      w0 * d[i000 + 1] + wA * d[iA + 1] + wB * d[iB + 1] + w3 * d[i111 + 1],
+      w0 * d[i000 + 2] + wA * d[iA + 2] + wB * d[iB + 2] + w3 * d[i111 + 2],
+    ];
+  }
+
   // Apply 3D LUT to RGBA buffer using tetrahedral interpolation (faster & cleaner on neutrals than trilinear)
-  function applyLut3DToRgba(rgba, lut) {
+  function applyLut3DToRgba(rgba, lut, outBuf) {
     const S = lut.size, d = lut.data, scale = (S - 1) / 255;
     const sR = 3, sG = S * 3, sB = S * S * 3, maxIdx = S - 2;
-    const out = new Uint8ClampedArray(rgba.length);
-    for (let i = 0; i < rgba.length; i += 4) {
+    const out = outBuf && outBuf.length === rgba.length ? outBuf : new Uint8ClampedArray(rgba.length);
+    for (let i = 0, len = rgba.length; i < len; i += 4) {
       const rx = rgba[i] * scale, gx = rgba[i + 1] * scale, bx = rgba[i + 2] * scale;
       const r0 = rx >= S - 1 ? maxIdx : (rx | 0);
       const g0 = gx >= S - 1 ? maxIdx : (gx | 0);
@@ -4020,23 +4078,40 @@ return {serialize, deserialize};
         else { iA = i000 + sG; iB = iA + sR; w1 = dg; w2 = dr; w3 = db; }
       }
       const w0 = 1 - w1, wA = w1 - w2, wB = w2 - w3;
-      out[i]     = clampByte((w0 * d[i000]     + wA * d[iA]     + wB * d[iB]     + w3 * d[i111])     * 255);
-      out[i + 1] = clampByte((w0 * d[i000 + 1] + wA * d[iA + 1] + wB * d[iB + 1] + w3 * d[i111 + 1]) * 255);
-      out[i + 2] = clampByte((w0 * d[i000 + 2] + wA * d[iA + 2] + wB * d[iB + 2] + w3 * d[i111 + 2]) * 255);
+      const r = (w0 * d[i000]     + wA * d[iA]     + wB * d[iB]     + w3 * d[i111])     * 255 + 0.5;
+      const g = (w0 * d[i000 + 1] + wA * d[iA + 1] + wB * d[iB + 1] + w3 * d[i111 + 1]) * 255 + 0.5;
+      const b = (w0 * d[i000 + 2] + wA * d[iA + 2] + wB * d[iB + 2] + w3 * d[i111 + 2]) * 255 + 0.5;
+      out[i]     = r < 0 ? 0 : r > 255 ? 255 : r | 0;
+      out[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g | 0;
+      out[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b | 0;
       out[i + 3] = rgba[i + 3];
     }
     return out;
   }
 
+  // Normalized [0..1] Standard/Auto/Vivid -> ZeroFC inverse helper (for single-pixel & 3D LUT composition)
+  function invertStandardRgb(rgb, chrScale = 0.799) {
+    const r = rgb[0], g = rgb[1], b = rgb[2];
+    const y = 0.299 * r + 0.587 * g + 0.114 * b;
+    const yf = clamp01(y) * 255;
+    const yi = yf >= 255 ? 255 : (yf | 0);
+    const y2 = yi >= 255 ? STD_INV_Y256[255] : STD_INV_Y256[yi] + (STD_INV_Y256[yi + 1] - STD_INV_Y256[yi]) * (yf - yi);
+    const cb = ((b - y) / 1.772) * chrScale;
+    const cr = ((r - y) / 1.402) * chrScale;
+    const r2 = y2 + 1.402 * cr;
+    const b2 = y2 + 1.772 * cb;
+    const g2 = (y2 - 0.299 * r2 - 0.114 * b2) / 0.587;
+    return [clamp01(r2), clamp01(g2), clamp01(b2)];
+  }
+
   // Phase 1 de-filtering: strips baked-in Flexible Color (via core.js inverse LUT) or Standard/Auto baseline
-  function defilterRgba(rgba, width, height, meta, lutNp3Core) {
+  function defilterRgba(rgba, width, height, meta, lutNp3Core, cachedInvLut) {
     if (!rgba || !meta || !meta.canDefilter) return null;
     const t0 = nowMs();
     if (meta.canDefilter === 'flexible-color' && meta.embeddedParams && lutNp3Core && typeof lutNp3Core.makeRenderer === 'function') {
-      const fwd = lutNp3Core.makeRenderer(meta.embeddedParams);
-      const lut = buildInverseLut3D(fwd, 17);
+      const lut = cachedInvLut && cachedInvLut.data ? cachedInvLut : buildInverseLut3D(lutNp3Core.makeRenderer(meta.embeddedParams), 17);
       const data = applyLut3DToRgba(rgba, lut);
-      return {width, height, data, method: 'inverse-fc', ms: nowMs() - t0};
+      return {width, height, data, method: 'inverse-fc', ms: nowMs() - t0, invLut: lut};
     }
     if (meta.canDefilter === 'standard-baseline') {
       const pcLabel = ((meta.pictureControl?.base || '') + ' ' + (meta.pictureControl?.name || '')).toLowerCase();
@@ -4057,7 +4132,7 @@ return {serialize, deserialize};
         out[i + 2] = clampByte(b2 * 255);
         out[i + 3] = rgba[i + 3];
       }
-      return {width, height, data: out, method: 'inverse-standard', ms: nowMs() - t0};
+      return {width, height, data: out, method: 'inverse-standard', ms: nowMs() - t0, chrScale};
     }
     return null;
   }
@@ -4559,7 +4634,10 @@ return {serialize, deserialize};
     extractSceneSamples,
     inspectPhotoMetadata,
     buildInverseLut3D,
+    bakeLut3D,
+    sampleLut3D,
     applyLut3DToRgba,
+    invertStandardRgb,
     defilterRgba,
     decodeRawBayer,
     _factory: lutPhotoFactory,
@@ -4608,25 +4686,27 @@ return {serialize, deserialize};
       refitBtn:'重新拟合',
       cancelBtn:'取消拟合',
       compareHeading:'效果对比',
-      photoHint:'可直接拖入或粘贴 JPG / PNG / TIFF / NEF / RAF / ARW / CR3 / DNG',
+      photoHint:'拖入或粘贴照片 / RAW',
       changePhotoBtn:'换一张照片',
-      photoBaseLabel:'原图基准',
-      baseModeAuto:'自动还原 ZeroFC 基准（推荐）',
-      baseModeBayer:'纯原始 RAW 解码（Bayer → ZeroFC）',
-      baseModeEmbed:'保留原图内嵌预览（不剥离）',
+      baseModeAuto:'自动还原 ZeroFC',
+      baseModeBayer:'原始 RAW (Bayer)',
+      baseModeEmbed:'原图预览',
+      saveOrigTip:'保存高清原图 JPG (95%)',
+      saveTargetTip:'保存高清目标 LUT 图 JPG (95%)',
+      saveFittedTip:'保存高清 NP3 预览图 JPG (95%)',
       fig1:'01 / 原图',
       fig2:'02 / 目标 LUT',
       fig3:'03 / NP3 效果预览',
       origRef:'sRGB 参考',
-      origRaw:'RAW 内嵌预览（含拍摄时优化校准）',
-      origEmbed:'内嵌预览 · sRGB 参考',
+      origRaw:'RAW 预览',
+      origEmbed:'内嵌预览',
       origZeroFC:'ZeroFC 零基准',
       origDefilterFC:'已剥离内嵌滤镜 · ZeroFC',
       origDefilterStd:'已校正基准 · ZeroFC',
       origBayer:'原始 RAW (Bayer) · ZeroFC',
-      origEmbedUnstripped:'原图内嵌预览（未剥离）',
-      origEmbedWarn:'原图内嵌预览（无法自动剥离）',
-      origEmbedKeep:'原图内嵌预览',
+      origEmbedUnstripped:'原图预览（未剥离）',
+      origEmbedWarn:'原图预览（无法剥离）',
+      origEmbedKeep:'原图预览',
       targetWait:'等待选择风格',
       targetApplied:'已套用目标 LUT',
       fitIdle:'选择风格后自动生成预览',
@@ -4691,6 +4771,8 @@ return {serialize, deserialize};
       stDefiltering:'正在剥离内嵌优化校准并还原 ZeroFC 基准…',
       stBayerDecoding:'正在进行纯原始 RAW (Bayer) 解码…',
       stPhotoLoaded:n=>'已更换预览照片：'+(n||'剪贴板图像'),
+      stExportingPhoto:'正在导出高清 JPG…',
+      stPhotoExported:n=>'已保存高清图：'+n,
       stExported:(f,n)=>'已导出 '+f+'.NP3（名称：'+n+'）。',
       progStart:'正在拟合…',
       progPct:p=>'拟合 '+p+'%',
@@ -4741,25 +4823,27 @@ return {serialize, deserialize};
       refitBtn:'Refit Now',
       cancelBtn:'Cancel Fit',
       compareHeading:'Look Comparison',
-      photoHint:'Drop or paste JPG / PNG / TIFF / NEF / RAF / ARW / CR3 / DNG',
+      photoHint:'Drop or paste photo / RAW',
       changePhotoBtn:'Change Photo',
-      photoBaseLabel:'Baseline',
-      baseModeAuto:'Auto ZeroFC Baseline (Recommended)',
-      baseModeBayer:'Raw Bayer Decode (Bayer → ZeroFC)',
-      baseModeEmbed:'Keep Embedded Preview (Original)',
+      baseModeAuto:'Auto ZeroFC',
+      baseModeBayer:'Raw Bayer',
+      baseModeEmbed:'Embedded',
+      saveOrigTip:'Save HD Original JPG (95%)',
+      saveTargetTip:'Save HD Target LUT JPG (95%)',
+      saveFittedTip:'Save HD NP3 Preview JPG (95%)',
       fig1:'01 / Original',
       fig2:'02 / Target LUT',
       fig3:'03 / NP3 Preview',
       origRef:'sRGB Reference',
-      origRaw:'Embedded RAW Preview',
-      origEmbed:'Embedded Preview · sRGB',
+      origRaw:'RAW Preview',
+      origEmbed:'Embedded Preview',
       origZeroFC:'ZeroFC Baseline',
       origDefilterFC:'De-filtered · ZeroFC',
       origDefilterStd:'Compensated · ZeroFC',
       origBayer:'Raw Bayer · ZeroFC',
-      origEmbedUnstripped:'Embedded Preview (Unstripped)',
-      origEmbedWarn:'Embedded Preview (Not Invertible)',
-      origEmbedKeep:'Original Embedded Preview',
+      origEmbedUnstripped:'Embedded (Unstripped)',
+      origEmbedWarn:'Embedded (Non-Invertible)',
+      origEmbedKeep:'Embedded Preview',
       targetWait:'Waiting for look',
       targetApplied:'Target LUT applied',
       fitIdle:'Select a look to auto-preview',
@@ -4824,6 +4908,8 @@ return {serialize, deserialize};
       stDefiltering:'Stripping embedded Picture Control to ZeroFC baseline…',
       stBayerDecoding:'Decoding raw Bayer sensor data…',
       stPhotoLoaded:n=>'Preview photo updated: '+(n||'Clipboard image'),
+      stExportingPhoto:'Exporting HD JPG…',
+      stPhotoExported:n=>'Saved HD image: '+n,
       stExported:(f,n)=>'Exported '+f+'.NP3 (Name: '+n+').',
       progStart:'Fitting…',
       progPct:p=>'Fitting '+p+'%',
@@ -4921,9 +5007,11 @@ return {serialize, deserialize};
     return msg;
   }
 
+  const PREVIEW_MAX=1600,EXPORT_MAX=4096,EXPORT_JPG_Q=0.95;
   let cube=null,preLut=null,result=null,shownResult=null,baseParams=null,activeParams=null,busy=false,sourceName='',sourcePreset=null,photoVersion=0,photoTaskGen=0,photoState=null,lutVersion=0,preVersion=0;
-  let fitGeneration=0,activeGeneration=null,fitTimer=null,previewTimer=null,manualTimer=null,queuedFit=false;
+  let fitGeneration=0,activeGeneration=null,fitTimer=null,previewTimer=null,manualTimer=null,manualSettleTimer=null,queuedFit=false;
   let fitKey='fitIdle',origKind='ref',origCustom='',statusState={kind:'stIdle',arg1:'',arg2:''};
+  let srcRgbaCache=null,targetLutCache=null,fitLutCache=null;
   const src=document.createElement('canvas');src.width=600;src.height=800;
   const optgroups=[],presetOptions=[];
 
@@ -5067,13 +5155,23 @@ return {serialize, deserialize};
     updateManualLabels();
     if(!baseParams)return;
     activeParams=buildActiveParams();
-    if(manualTimer!==null)clearTimeout(manualTimer);
-    manualTimer=setTimeout(()=>{
+    fitLutCache=null;
+    if(manualTimer!==null){clearTimeout(manualTimer);manualTimer=null;}
+    if(manualSettleTimer!==null){clearTimeout(manualSettleTimer);manualSettleTimer=null;}
+    const renderFast=()=>{
       manualTimer=null;
-      if(shownResult&&activeParams)draw($('fitted'),C.makeRenderer(activeParams));
+      if(shownResult&&activeParams)drawFitted(activeParams,21);
       refreshMetricsDisplay();
       fitState();
-    },25);
+    };
+    manualTimer=setTimeout(()=>{
+      if(typeof requestAnimationFrame==='function')requestAnimationFrame(renderFast);
+      else renderFast();
+    },16);
+    manualSettleTimer=setTimeout(()=>{
+      manualSettleTimer=null;
+      if(shownResult&&activeParams&&(!fitLutCache||fitLutCache.size<33))drawFitted(activeParams,33);
+    },160);
   }
   function resetToneOffsets(){
     for(const id of TONE_IDS)if($(id))$(id).value='0';
@@ -5141,90 +5239,65 @@ return {serialize, deserialize};
     const zh=lang==='zh';
     const cam=formatCameraPrefix(meta)||(zh?'相机 RAW':'Camera RAW');
     const comp=formatCompTag(meta);
-    const compParen=comp?(zh?'（'+comp+'）':' ('+comp+')'):'';
+    const compTag=comp?' ('+comp+')':'';
     const pc=meta.pictureControl;
-    const pcName=pc?(String(pc.name||pc.base||'').trim()||(zh?'自定义优化校准':'Custom Picture Control')):'';
+    const pcName=pc?(String(pc.name||pc.base||'').trim()||(zh?'自定义滤镜':'Custom Look')):'';
     const hasAdl=meta.activeDLighting&&!/^(off|none|0)$/i.test(String(meta.activeDLighting).trim());
-    const adlNote=hasAdl?(zh?'（机内 ADL：'+meta.activeDLighting+'）':' (ADL: '+meta.activeDLighting+')'):'';
-    const ms=st.lastMs>0?' ('+Math.round(st.lastMs)+' ms)':'';
+    const adlTip=hasAdl?(zh?' · 机内 ADL: '+meta.activeDLighting:' · ADL: '+meta.activeDLighting):'';
+    const msTip=st.lastMs>0?' · '+Math.round(st.lastMs)+' ms':'';
     const act=st.activeAction;
 
     if(act==='loading-defilter'){
-      return {tone:'info',text:zh
-        ?cam+(pcName?' · 内嵌「'+pcName+'」':'')+compParen+' — 正在剥离内嵌滤镜还原 ZeroFC 基准…'
-        :cam+(pcName?' · Embedded "'+pcName+'"':'')+compParen+' — Stripping embedded look to ZeroFC baseline…'};
+      return {tone:'info',text:zh?cam+' · 还原 ZeroFC…':cam+' · Restoring ZeroFC…',tip:''};
     }
     if(act==='loading-bayer'){
-      return {tone:'info',text:zh
-        ?cam+compParen+' — 正在进行纯原始 RAW (Bayer) 解码 → ZeroFC 基准…'
-        :cam+compParen+' — Decoding raw Bayer sensor data → ZeroFC baseline…'};
+      return {tone:'info',text:zh?cam+' · 解码 RAW…':cam+' · Decoding RAW…',tip:''};
     }
     if(act==='zero-fc'){
-      return {tone:'ok',text:zh
-        ?cam+compParen+' · 已检测到 ZeroFC 零基准原图'+adlNote
-        :cam+compParen+' · ZeroFC neutral baseline detected'+adlNote};
+      return {tone:'ok',text:cam+compTag+' · ZeroFC',tip:(zh?'已是 ZeroFC 零基准原图':'Already ZeroFC neutral baseline')+adlTip};
     }
     if(act==='defilter-fc'){
-      return {tone:'ok',text:zh
-        ?cam+' · 内嵌「'+pcName+'」'+compParen+' — 已自动剥离滤镜还原 ZeroFC 基准'+ms+adlNote
-        :cam+' · Embedded "'+pcName+'"'+compParen+' — Auto-stripped look to ZeroFC baseline'+ms+adlNote};
+      return {tone:'ok',text:cam+' · '+pcName+compTag+' → ZeroFC',tip:(zh?'已自动剥离内嵌滤镜并还原 ZeroFC 基准':'Auto-stripped embedded look to ZeroFC baseline')+msTip+adlTip};
     }
     if(act==='defilter-std'){
-      return {tone:'ok',text:zh
-        ?cam+' · 内嵌「'+pcName+'」'+compParen+' — 已自动校正为 ZeroFC 基准'+ms+adlNote
-        :cam+' · Embedded "'+pcName+'"'+compParen+' — Compensated to ZeroFC baseline'+ms+adlNote};
+      return {tone:'ok',text:cam+' · '+pcName+compTag+' → ZeroFC',tip:(zh?'已自动补偿基线至 ZeroFC':'Compensated baseline to ZeroFC')+msTip+adlTip};
     }
     if(act==='bayer'){
-      const autoFromMono=st.mode==='auto'&&(pc?.isMonochrome||meta.defilterReason==='curve-collapsed');
-      if(autoFromMono&&pcName){
-        return {tone:'ok',text:zh
-          ?cam+' · 内嵌「'+pcName+'」无法逆推 — 已自动切换纯原始 RAW (Bayer) 解码 → ZeroFC 基准'+ms
-          :cam+' · Embedded "'+pcName+'" non-invertible — Auto-switched to raw Bayer decode → ZeroFC baseline'+ms};
-      }
-      return {tone:'ok',text:zh
-        ?cam+compParen+' · 已通过纯原始 RAW (Bayer) 解码 → ZeroFC 基准'+ms
-        :cam+compParen+' · Decoded from raw Bayer sensor data → ZeroFC baseline'+ms};
+      return {tone:'ok',text:cam+compTag+' · Bayer → ZeroFC',tip:(zh?'已由原始 RAW (Bayer) 解码至 ZeroFC 基准':'Decoded from raw Bayer sensor data to ZeroFC')+msTip};
     }
     if(act==='warn-he-mono'||act==='warn-he-collapsed'){
       const heTag=comp||'HE★';
-      return {tone:'warn',text:zh
-        ?cam+' · 内嵌「'+(pcName||'黑白/极端曲线')+'」（'+heTag+'）无法逆推，且尼康 HE/HE★ (TicoRAW) 暂不支持浏览器直接 Bayer 解码；建议改用无损压缩 NEF、NX Studio 导出 ZeroFC 或用 Adobe DNG Converter 转 DNG。'
-        :cam+' · Embedded "'+(pcName||'Monochrome')+'" ('+heTag+') is non-invertible, and Nikon HE/HE★ (TicoRAW) cannot be Bayer-decoded in browser; use Lossless NEF, export ZeroFC from NX Studio, or convert via Adobe DNG Converter.'};
+      return {tone:'warn',
+        text:zh
+          ?cam+' · '+(pcName||'黑白')+' ('+heTag+' TicoRAW) 无法逆推，建议改用无损 NEF / DNG'
+          :cam+' · '+(pcName||'Mono')+' ('+heTag+' TicoRAW) non-invertible; use Lossless NEF / DNG',
+        tip:zh
+          ?'尼康 HE/HE★ 采用私有 TicoRAW 编码，浏览器无法解码原始 Bayer；请改用无损压缩 NEF、NX Studio 导出 ZeroFC 或 Adobe DNG Converter 转 DNG。'
+          :'Nikon HE/HE★ uses proprietary TicoRAW and cannot be Bayer-decoded in browser; use Lossless NEF, NX Studio ZeroFC, or Adobe DNG Converter.'};
     }
     if(act==='warn-mono'){
-      return {tone:'warn',text:zh
-        ?cam+' · 内嵌「'+(pcName||'黑白/极端曲线')+'」'+compParen+'为黑白或极端曲线，无法从预览图还原彩色基准；建议改用无损压缩 NEF 或 ZeroFC 原图。'
-        :cam+' · Embedded "'+(pcName||'Monochrome')+'"'+compParen+' is monochrome or clipped and cannot be inverted from preview; use Lossless NEF or a ZeroFC baseline photo.'};
+      return {tone:'warn',
+        text:zh?cam+' · '+(pcName||'黑白')+' 无法逆推，建议用无损 NEF / ZeroFC':cam+' · '+(pcName||'Mono')+' non-invertible; use Lossless NEF / ZeroFC',
+        tip:''};
     }
     if(act==='warn-no-recipe'){
       const isJpgFc=String(meta.format||'').toLowerCase()==='jpeg'&&pc?.isFlexibleColor;
-      if(isJpgFc){
-        return {tone:'warn',text:zh
-          ?cam+' · 检测到「'+pcName+'」'+compParen+'不含可逆参数配方，当前保留原图预览'+adlNote+'；建议载入对应 NEF 原片以自动剥离滤镜还原 ZeroFC 基准。'
-          :cam+' · Detected "'+pcName+'"'+compParen+' without an invertible recipe; keeping original preview'+adlNote+' — drop the matching NEF to auto-strip the look to ZeroFC.'};
-      }
-      return {tone:'warn',text:zh
-        ?cam+' · 检测到「'+pcName+'」'+compParen+'，未含可逆参数配方，当前保留原图内嵌预览'+adlNote+'。'
-        :cam+' · Detected "'+pcName+'"'+compParen+' without an invertible recipe; keeping original embedded preview'+adlNote+'.'};
+      return {tone:'warn',
+        text:isJpgFc
+          ?(zh?cam+' · '+pcName+' JPG 无配方（传 NEF 可自动还原）':cam+' · '+pcName+' JPG has no recipe (drop NEF to auto-strip)')
+          :(zh?cam+' · '+pcName+' 无配方，保留原图':cam+' · '+pcName+' has no recipe; keeping preview'),
+        tip:adlTip.replace(/^ · /,'')};
     }
     if(act==='warn-fallback'){
-      return {tone:'warn',text:zh
-        ?cam+compParen+' · 自动基准还原未完成，已回退至原图内嵌预览。'
-        :cam+compParen+' · Baseline recovery unavailable; fell back to original embedded preview.'};
+      return {tone:'warn',text:zh?cam+' · 基准还原失败，已保留原图':cam+' · Baseline recovery unavailable; kept preview',tip:''};
     }
     if(pc?.isZeroFC){
-      return {tone:'ok',text:zh
-        ?cam+compParen+' · 原图本身已是 ZeroFC 零基准预览'+adlNote
-        :cam+compParen+' · Original embedded preview is already ZeroFC'+adlNote};
+      return {tone:'ok',text:cam+compTag+' · ZeroFC',tip:adlTip.replace(/^ · /,'')};
     }
     if(pcName){
-      return {tone:'info',text:zh
-        ?cam+' · 当前保留「'+pcName+'」'+compParen+'原图内嵌预览（未剥离，目标 LUT 将直接叠加）'
-        :cam+' · Keeping original "'+pcName+'"'+compParen+' embedded preview (unstripped; target LUT stacks on top)'};
+      return {tone:'info',text:cam+' · '+pcName+compTag,tip:zh?'保留原图预览（目标 LUT 将直接叠加）':'Keeping original preview (target LUT stacks on top)'};
     }
-    return {tone:'info',text:zh
-      ?cam+compParen+' · 当前保留原图内嵌预览'
-      :cam+compParen+' · Keeping original embedded preview'};
+    return {tone:'info',text:cam+compTag,tip:''};
   }
   function renderPhotoMetaBar(){
     const bar=$('photoMetaBar');
@@ -5232,12 +5305,14 @@ return {serialize, deserialize};
     const info=formatPhotoMetaBar();
     if(!info){
       bar.hidden=true;
+      bar.title='';
       bar.classList.toggle('ok',false);
       bar.classList.toggle('info',false);
       bar.classList.toggle('warn',false);
       return;
     }
     bar.hidden=false;
+    bar.title=info.tip||'';
     bar.classList.toggle('ok',info.tone==='ok');
     bar.classList.toggle('info',info.tone==='info');
     bar.classList.toggle('warn',info.tone==='warn');
@@ -5321,40 +5396,50 @@ return {serialize, deserialize};
   }
 
   const origDefilter=D.defilterRgba,origDecodeBayer=D.decodeRawBayer;
-  let photoWorker=null,photoWorkerBlobUrl=null,photoWorkerDisabled=false,photoWorkerJob=null,photoWorkerReqId=0;
+  let photoWorker=null,photoWorkerBlobUrl=null,photoWorkerDisabled=false,photoWorkerReqId=0;
+  const photoWorkerJobs=new Map();
 
-  function killPhotoWorker(){
+  function killPhotoWorker(onlyTag=null){
+    if(onlyTag){
+      for(const [id,j] of [...photoWorkerJobs.entries()]){
+        if(j.tag===onlyTag){
+          photoWorkerJobs.delete(id);
+          const err=Error('photo-task-cancelled');err._cancelled=true;j.reject(err);
+        }
+      }
+      if(!photoWorkerJobs.size&&photoWorker){try{photoWorker.terminate();}catch{}photoWorker=null;}
+      return;
+    }
     if(photoWorker){try{photoWorker.terminate();}catch{}photoWorker=null;}
-    if(photoWorkerJob){const j=photoWorkerJob;photoWorkerJob=null;const err=Error('photo-task-cancelled');err._cancelled=true;j.reject(err);}
+    for(const j of photoWorkerJobs.values()){const err=Error('photo-task-cancelled');err._cancelled=true;j.reject(err);}
+    photoWorkerJobs.clear();
+  }
+  function failPhotoWorker(){
+    photoWorkerDisabled=true;
+    if(photoWorker){try{photoWorker.terminate();}catch{}photoWorker=null;}
+    const pending=[...photoWorkerJobs.values()];
+    photoWorkerJobs.clear();
+    for(const j of pending)j.fallback();
   }
   function ensurePhotoWorker(){
     if(photoWorkerDisabled||typeof Worker!=='function'||typeof D._factory!=='function'||typeof C._factory!=='function'||!window.NikonModelData)return null;
     if(photoWorker)return photoWorker;
     try{
       if(!photoWorkerBlobUrl){
-        const code=`'use strict';let P=null,L=null;self.onmessage=async e=>{const m=e.data;try{if(m.type==='init'){P=(${D._factory.toString()})();L=(${C._factory.toString()})(null,m.model);return;}let r=null;if(m.type==='defilter'){r=await P.defilterRgba(m.rgba,m.width,m.height,m.meta,L);}else if(m.type==='bayer'){r=await P.decodeRawBayer(m.bytes,m.options);}const tx=r&&r.data&&r.data.buffer&&r.data.byteOffset===0&&r.data.byteLength===r.data.buffer.byteLength?[r.data.buffer]:[];self.postMessage({type:'done',id:m.id,result:r},tx);}catch(err){self.postMessage({type:'err',id:m.id||0,init:m.type==='init',message:err&&err.message||String(err)});}};`;
+        const code=`'use strict';let P=null,L=null;self.onmessage=async e=>{const m=e.data;try{if(m.type==='init'){P=(${D._factory.toString()})();L=(${C._factory.toString()})(null,m.model);return;}let r=null;if(m.type==='defilter'){r=await P.defilterRgba(m.rgba,m.width,m.height,m.meta,L,m.cachedInvLut);}else if(m.type==='bayer'){r=await P.decodeRawBayer(m.bytes,m.options);}else if(m.type==='applyLut'){const inv=m.invLut,chr=m.stdChrScale,lut=m.lut;let out;if(lut&&(inv||chr)){const composed=P.bakeLut3D(rgb=>{const base=inv?P.sampleLut3D(inv,rgb):P.invertStandardRgb(rgb,chr);return P.sampleLut3D(lut,base);},33);out=P.applyLut3DToRgba(m.rgba,composed);}else if(lut){out=P.applyLut3DToRgba(m.rgba,lut);}else if(inv){out=P.applyLut3DToRgba(m.rgba,inv);}else if(chr){const stdLut=P.bakeLut3D(rgb=>P.invertStandardRgb(rgb,chr),33);out=P.applyLut3DToRgba(m.rgba,stdLut);}else{out=m.rgba;}r={data:out};}const tx=r&&r.data&&r.data.buffer&&r.data.byteOffset===0&&r.data.byteLength===r.data.buffer.byteLength?[r.data.buffer]:[];self.postMessage({type:'done',id:m.id,result:r},tx);}catch(err){self.postMessage({type:'err',id:m.id||0,init:m.type==='init',message:err&&err.message||String(err)});}};`;
         photoWorkerBlobUrl=URL.createObjectURL(new Blob([code],{type:'application/javascript'}));
       }
       const w=new Worker(photoWorkerBlobUrl);
       w.onmessage=e=>{
         const m=e.data;
-        if(m.type==='err'&&m.init){
-          photoWorkerDisabled=true;try{w.terminate();}catch{}photoWorker=null;
-          if(photoWorkerJob){const j=photoWorkerJob;photoWorkerJob=null;j.fallback();}
-          return;
-        }
-        if(!photoWorkerJob||m.id!==photoWorkerJob.id)return;
-        const j=photoWorkerJob;photoWorkerJob=null;
+        if(m.type==='err'&&m.init){failPhotoWorker();return;}
+        const j=photoWorkerJobs.get(m.id);
+        if(!j)return;
+        photoWorkerJobs.delete(m.id);
         if(m.type==='done')j.resolve(m.result);
         else j.reject(Error(m.message||'图像处理失败'));
       };
-      w.onerror=ev=>{
-        ev?.preventDefault?.();
-        photoWorkerDisabled=true;
-        try{w.terminate();}catch{}
-        photoWorker=null;
-        if(photoWorkerJob){const j=photoWorkerJob;photoWorkerJob=null;j.fallback();}
-      };
+      w.onerror=ev=>{ev?.preventDefault?.();failPhotoWorker();};
       w.postMessage({type:'init',model:window.NikonModelData});
       photoWorker=w;
       return w;
@@ -5363,41 +5448,78 @@ return {serialize, deserialize};
       return null;
     }
   }
-  function runPhotoDefilter(rgba,width,height,meta){
+  function runPhotoDefilter(rgba,width,height,meta,cachedInvLut=null){
     if(typeof D.defilterRgba!=='function')return Promise.resolve(null);
-    if(D.defilterRgba!==origDefilter)return Promise.resolve().then(()=>D.defilterRgba(rgba,width,height,meta,C));
+    if(D.defilterRgba!==origDefilter)return Promise.resolve().then(()=>D.defilterRgba(rgba,width,height,meta,C,cachedInvLut));
     const w=ensurePhotoWorker();
-    if(!w)return Promise.resolve().then(()=>D.defilterRgba(rgba,width,height,meta,C));
+    if(!w)return Promise.resolve().then(()=>D.defilterRgba(rgba,width,height,meta,C,cachedInvLut));
     return new Promise((resolve,reject)=>{
       const id=++photoWorkerReqId;
-      photoWorkerJob={
-        id,resolve,reject,
-        fallback(){Promise.resolve().then(()=>D.defilterRgba(rgba,width,height,meta,C)).then(resolve,reject);}
-      };
-      w.postMessage({type:'defilter',id,rgba,width,height,meta});
+      photoWorkerJobs.set(id,{
+        id,tag:'baseline',resolve,reject,
+        fallback(){Promise.resolve().then(()=>D.defilterRgba(rgba,width,height,meta,C,cachedInvLut)).then(resolve,reject);}
+      });
+      w.postMessage({type:'defilter',id,rgba,width,height,meta,cachedInvLut});
     });
   }
-  function runPhotoBayer(bytes,options={maxDim:1400}){
+  function runPhotoBayer(bytes,options={maxDim:PREVIEW_MAX},tag='baseline'){
     if(typeof D.decodeRawBayer!=='function')return Promise.resolve(null);
     if(D.decodeRawBayer!==origDecodeBayer)return Promise.resolve().then(()=>D.decodeRawBayer(bytes,options));
     const w=ensurePhotoWorker();
     if(!w)return Promise.resolve().then(()=>D.decodeRawBayer(bytes,options));
     return new Promise((resolve,reject)=>{
       const id=++photoWorkerReqId;
-      photoWorkerJob={
-        id,resolve,reject,
+      photoWorkerJobs.set(id,{
+        id,tag,resolve,reject,
         fallback(){Promise.resolve().then(()=>D.decodeRawBayer(bytes,options)).then(resolve,reject);}
-      };
+      });
       w.postMessage({type:'bayer',id,bytes,options});
     });
   }
+  function applyLutLocal(rgba,lut,invLut,stdChrScale){
+    if(lut&&(invLut||stdChrScale)){
+      const composed=D.bakeLut3D(rgb=>{const base=invLut?D.sampleLut3D(invLut,rgb):D.invertStandardRgb(rgb,stdChrScale);return D.sampleLut3D(lut,base);},33);
+      return D.applyLut3DToRgba(rgba,composed);
+    }
+    if(lut)return D.applyLut3DToRgba(rgba,lut);
+    if(invLut)return D.applyLut3DToRgba(rgba,invLut);
+    if(stdChrScale)return D.applyLut3DToRgba(rgba,D.bakeLut3D(rgb=>D.invertStandardRgb(rgb,stdChrScale),33));
+    return rgba;
+  }
+  function runPhotoApplyLut(rgba,lut,invLut=null,stdChrScale=0){
+    if(typeof D.applyLut3DToRgba!=='function'||typeof D.bakeLut3D!=='function')return Promise.resolve({data:rgba});
+    const w=ensurePhotoWorker();
+    if(!w)return Promise.resolve().then(()=>({data:applyLutLocal(rgba,lut,invLut,stdChrScale)}));
+    return new Promise((resolve,reject)=>{
+      const id=++photoWorkerReqId;
+      const copy=rgba instanceof Uint8ClampedArray?new Uint8ClampedArray(rgba):new Uint8ClampedArray(rgba);
+      photoWorkerJobs.set(id,{
+        id,tag:'export',resolve,reject,
+        fallback(){Promise.resolve().then(()=>({data:applyLutLocal(rgba,lut,invLut,stdChrScale)})).then(resolve,reject);}
+      });
+      w.postMessage({type:'applyLut',id,rgba:copy,lut,invLut,stdChrScale},[copy.buffer]);
+    });
+  }
 
+  function syncSaveButtons(){
+    const d=T();
+    const tips=[['saveOrig',d.saveOrigTip],['saveTarget',d.saveTargetTip],['saveFitted',d.saveFittedTip]];
+    for(const [id,tip] of tips){
+      const el=$(id);
+      if(!el)continue;
+      el.title=tip;
+      if(typeof el.setAttribute==='function')el.setAttribute('aria-label',tip);
+    }
+    if($('saveTarget'))$('saveTarget').hidden=!ready();
+    if($('saveFitted'))$('saveFitted').hidden=!shownResult;
+  }
   function fitState(){
     const d=T();
     let msg=d[fitKey]||d.fitIdle;
     if(fitKey==='fitRunning'&&curPct>0)msg=d.progPct(curPct);
     $('fitted').hidden=!shownResult;$('fitOverlay').hidden=!!result;$('fitOverlay').textContent=msg;
     $('fitCaption').textContent=result?(hasColorOffsets()?d.fitModelEdited:d.fitModelCap):shownResult?msg+d.fitPrevSuffix:msg;
+    if($('saveFitted'))$('saveFitted').hidden=!shownResult;
   }
   function updateControls(){
     const active=busy&&activeGeneration===fitGeneration,pending=fitTimer!==null||queuedFit||active;
@@ -5444,6 +5566,7 @@ return {serialize, deserialize};
     renderPhotoMetaBar();
     renderOrigCaption();
     $('targetCaption').textContent=ready()?d.targetApplied:d.targetWait;
+    syncSaveButtons();
     updateManualLabels();
     refreshMetricsDisplay();
     if(result)showWarnings(result.warnings);
@@ -5454,14 +5577,18 @@ return {serialize, deserialize};
   function invalidate(clearPreview=false){
     ++fitGeneration;if(fitTimer!==null)clearTimeout(fitTimer);fitTimer=null;queuedFit=false;
     if(previewTimer!==null)clearTimeout(previewTimer);previewTimer=null;
+    if(manualTimer!==null){clearTimeout(manualTimer);manualTimer=null;}
+    if(manualSettleTimer!==null){clearTimeout(manualSettleTimer);manualSettleTimer=null;}
     if(workerJob)killFitWorker();
     curPct=0;
-    result=null;baseParams=null;if(clearPreview){shownResult=null;activeParams=null;}
+    targetLutCache=null;
+    result=null;baseParams=null;if(clearPreview){shownResult=null;activeParams=null;fitLutCache=null;}
     setToneSlidersEnabled(false);
     $('download').disabled=true;
     for(const id of ['rmse','p95','grayRmse','lowSatRmse','fidelity'])$(id).textContent='—';
     $('warnings').hidden=true;
     fitKey=ready()?'fitPending':cube?'fitNeedPre':'fitIdle';
+    syncSaveButtons();
     refreshMetricsDisplay();fitState();updateControls();
   }
   function queuePreview(){
@@ -5483,6 +5610,7 @@ return {serialize, deserialize};
   function settingsChanged(){invalidate();queuePreview();scheduleFit();}
 
   function sampleChart(){
+    srcRgbaCache=null;
     const ctx=src.getContext('2d'),w=src.width,h=src.height;ctx.fillStyle='#d3d1c3';ctx.fillRect(0,0,w,h);
     let g=ctx.createLinearGradient(0,0,0,h*.5);g.addColorStop(0,'#4b8399');g.addColorStop(1,'#d9d6b7');ctx.fillStyle=g;ctx.fillRect(0,0,w,h*.5);
     ctx.fillStyle='#708367';ctx.beginPath();ctx.moveTo(0,h*.45);ctx.lineTo(w*.35,h*.2);ctx.lineTo(w*.72,h*.48);ctx.lineTo(w,h*.3);ctx.lineTo(w,h*.62);ctx.lineTo(0,h*.62);ctx.fill();
@@ -5490,19 +5618,58 @@ return {serialize, deserialize};
     const skin=['#edc7a5','#d7a889','#b98468','#90624c','#634739','#302e2c'];for(let i=0;i<6;i++){ctx.fillStyle=skin[i];ctx.fillRect(i*w/6,h*.65,w/6,h*.12);}
     for(let i=0;i<12;i++){ctx.fillStyle='hsl('+i*30+' 60% 48%)';ctx.fillRect(i*w/12,h*.79,w/12,h*.10);ctx.fillStyle='rgb('+Array(3).fill(Math.round(i*255/11)).join(',')+')';ctx.fillRect(i*w/12,h*.91,w/12,h*.09);}
   }
-  function draw(canvas,transform){
-    canvas.width=src.width;canvas.height=src.height;const ctx=canvas.getContext('2d');ctx.drawImage(src,0,0);if(!transform)return;
-    const image=ctx.getImageData(0,0,src.width,src.height),a=image.data;
-    for(let i=0;i<a.length;i+=4){const rgb=transform([a[i]/255,a[i+1]/255,a[i+2]/255]);a[i]=Math.round(rgb[0]*255);a[i+1]=Math.round(rgb[1]*255);a[i+2]=Math.round(rgb[2]*255);}
-    ctx.putImageData(image,0,0);
+  function getSrcRgba(){
+    const expect=src.width*src.height*4;
+    if(srcRgbaCache&&srcRgbaCache.width===src.width&&srcRgbaCache.height===src.height&&srcRgbaCache.data.length===expect)return srcRgbaCache.data;
+    const img=src.getContext('2d').getImageData(0,0,src.width,src.height);
+    if(img&&img.data&&img.data.length===expect)srcRgbaCache={width:src.width,height:src.height,data:img.data};
+    return img.data;
+  }
+  function getTargetLut(){
+    if(!ready())return null;
+    const o=opts();
+    const key=[lutVersion,preVersion,o.input,o.output,o.range,o.exposure,o.highlights,o.strength].join('|');
+    if(targetLutCache&&targetLutCache.key===key)return targetLutCache.lut;
+    const fn=C.makeTarget(cube,o);
+    const lut=typeof D.bakeLut3D==='function'?D.bakeLut3D(fn,33):{fn};
+    targetLutCache={key,lut};
+    return lut;
+  }
+  function getFitLut(renderP,size=33){
+    if(!renderP)return null;
+    if(fitLutCache&&fitLutCache.params===renderP&&fitLutCache.size>=size)return fitLutCache.lut;
+    const fn=C.makeRenderer(renderP);
+    const lut=typeof D.bakeLut3D==='function'?D.bakeLut3D(fn,size):{fn};
+    fitLutCache={params:renderP,size,lut};
+    return lut;
+  }
+  function drawWithLut(canvas,lut){
+    canvas.width=src.width;canvas.height=src.height;const ctx=canvas.getContext('2d');
+    if(!lut){ctx.drawImage(src,0,0);return;}
+    const inData=getSrcRgba();
+    if(lut.data&&typeof D.applyLut3DToRgba==='function'){
+      const out=D.applyLut3DToRgba(inData,lut);
+      ctx.putImageData(makeImageData(ctx,out,src.width,src.height),0,0);
+      return;
+    }
+    const transform=lut.fn||lut;
+    const out=new Uint8ClampedArray(inData.length);
+    for(let i=0;i<inData.length;i+=4){const rgb=transform([inData[i]/255,inData[i+1]/255,inData[i+2]/255]);out[i]=Math.round(rgb[0]*255);out[i+1]=Math.round(rgb[1]*255);out[i+2]=Math.round(rgb[2]*255);out[i+3]=inData[i+3];}
+    ctx.putImageData(makeImageData(ctx,out,src.width,src.height),0,0);
+  }
+  function drawFitted(renderP,size=33){
+    if(!renderP)return;
+    drawWithLut($('fitted'),getFitLut(renderP,size));
   }
   function preview(){
-    draw($('original'));let target=null;
-    if(ready())try{target=C.makeTarget(cube,opts());}catch(e){setStatusError(e);}
-    draw($('target'),target);
+    drawWithLut($('original'),null);
+    let targetLut=null;
+    if(ready())try{targetLut=getTargetLut();}catch(e){setStatusError(e);}
+    drawWithLut($('target'),targetLut);
     const renderP=activeParams||shownResult?.params;
-    if(renderP)draw($('fitted'),C.makeRenderer(renderP));
-    $('targetCaption').textContent=target?T().targetApplied:T().targetWait;
+    if(renderP)drawFitted(renderP,33);
+    $('targetCaption').textContent=targetLut?T().targetApplied:T().targetWait;
+    if($('saveTarget'))$('saveTarget').hidden=!targetLut;
     fitState();
   }
   function resetPresetSettings(){
@@ -5586,48 +5753,53 @@ return {serialize, deserialize};
     if(id.data&&id.data!==data)id.data.set(data.subarray(0,Math.min(data.length,id.data.length)));
     return id;
   }
-  function extractRgbaFromImg(img,orientation=1){
-    const o=orientation|0,swap=o>=5&&o<=8;
-    const maxW=swap?900:700,maxH=swap?700:900;
-    const scale=Math.min(1,maxW/img.width,maxH/img.height);
+  function drawImageHQ(source,srcW,srcH,dstW,dstH){
+    let cur=source,cw=srcW|0,ch=srcH|0;
+    while(cw>dstW*2&&ch>dstH*2){
+      const nw=Math.max(dstW,cw>>1),nh=Math.max(dstH,ch>>1);
+      const step=document.createElement('canvas');step.width=nw;step.height=nh;
+      const sctx=step.getContext('2d');
+      sctx.imageSmoothingEnabled=true;sctx.imageSmoothingQuality='high';
+      sctx.drawImage(cur,0,0,nw,nh);
+      cur=step;cw=nw;ch=nh;
+    }
+    const out=document.createElement('canvas');out.width=dstW;out.height=dstH;
+    const octx=out.getContext('2d');
+    octx.fillStyle='#fff';octx.fillRect(0,0,dstW,dstH);
+    octx.imageSmoothingEnabled=true;octx.imageSmoothingQuality='high';
+    octx.drawImage(cur,0,0,dstW,dstH);
+    return out;
+  }
+  function extractRgbaFromImg(img,orientation=1,maxDim=PREVIEW_MAX){
+    const o=orientation|0;
+    const scale=Math.min(1,maxDim/Math.max(1,img.width,img.height));
     const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
-    const tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;
-    const tctx=tmp.getContext('2d');tctx.fillStyle='#fff';tctx.fillRect(0,0,w,h);tctx.drawImage(img,0,0,w,h);
-    const copy=new Uint8ClampedArray(tctx.getImageData(0,0,w,h).data);
+    const tmp=drawImageHQ(img,img.width,img.height,w,h);
+    const copy=new Uint8ClampedArray(tmp.getContext('2d').getImageData(0,0,w,h).data);
     if(o<=1||o>8)return {width:w,height:h,data:copy};
     return D.applyOrientationRGBA(w,h,copy,o);
   }
-  function scaleRgbaToMax(decoded,maxW=700,maxH=900){
-    const scale=Math.min(1,maxW/decoded.width,maxH/decoded.height);
+  function scaleRgbaToMax(decoded,maxDim=PREVIEW_MAX){
+    const scale=Math.min(1,maxDim/Math.max(1,decoded.width,decoded.height));
     const w=Math.max(1,Math.round(decoded.width*scale)),h=Math.max(1,Math.round(decoded.height*scale));
     const data=decoded.data instanceof Uint8ClampedArray?decoded.data:new Uint8ClampedArray(decoded.data);
     if(w===decoded.width&&h===decoded.height)return {width:w,height:h,data};
     const full=document.createElement('canvas');full.width=decoded.width;full.height=decoded.height;
     const fctx=full.getContext('2d');fctx.putImageData(makeImageData(fctx,data,decoded.width,decoded.height),0,0);
-    const tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;
-    const tctx=tmp.getContext('2d');tctx.fillStyle='#fff';tctx.fillRect(0,0,w,h);tctx.drawImage(full,0,0,w,h);
-    return {width:w,height:h,data:new Uint8ClampedArray(tctx.getImageData(0,0,w,h).data)};
+    const tmp=drawImageHQ(full,decoded.width,decoded.height,w,h);
+    return {width:w,height:h,data:new Uint8ClampedArray(tmp.getContext('2d').getImageData(0,0,w,h).data)};
   }
   function putRgbaToSrc(decoded){
-    const scale=Math.min(1,700/decoded.width,900/decoded.height);
-    const w=Math.max(1,Math.round(decoded.width*scale)),h=Math.max(1,Math.round(decoded.height*scale));
-    const data=decoded.data instanceof Uint8ClampedArray?decoded.data:new Uint8ClampedArray(decoded.data);
-    if(w===decoded.width&&h===decoded.height){
-      src.width=w;src.height=h;
-      const ctx=src.getContext('2d');
-      ctx.putImageData(makeImageData(ctx,data,w,h),0,0);
-      return;
-    }
-    const full=document.createElement('canvas');full.width=decoded.width;full.height=decoded.height;
-    const fctx=full.getContext('2d');
-    fctx.putImageData(makeImageData(fctx,data,decoded.width,decoded.height),0,0);
-    src.width=w;src.height=h;
-    const ctx=src.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(full,0,0,w,h);
+    const scaled=scaleRgbaToMax(decoded,PREVIEW_MAX);
+    src.width=scaled.width;src.height=scaled.height;
+    const ctx=src.getContext('2d');
+    ctx.putImageData(makeImageData(ctx,scaled.data,scaled.width,scaled.height),0,0);
+    srcRgbaCache=scaled.data.length===scaled.width*scaled.height*4?{width:scaled.width,height:scaled.height,data:scaled.data}:null;
   }
   async function applyPhotoBaselineMode(requestedMode,version){
     if(version!==photoVersion||!photoState||photoState.version!==version)return;
     const taskGen=++photoTaskGen;
-    killPhotoWorker();
+    killPhotoWorker('baseline');
 
     const meta=photoState.meta;
     const showBar=shouldShowPhotoMetaBar(meta);
@@ -5750,7 +5922,7 @@ return {serialize, deserialize};
       renderPhotoMetaBar();
       if(!busy)setStatusKey('stBayerDecoding');
       try{
-        const res=await runPhotoBayer(photoState.bytes,{maxDim:1400});
+        const res=await runPhotoBayer(photoState.bytes,{maxDim:PREVIEW_MAX},'baseline');
         if(version!==photoVersion||taskGen!==photoTaskGen)return;
         if(res&&res.data&&res.width>0&&res.height>0){
           photoState.bayerRgba=res;
@@ -5785,14 +5957,16 @@ return {serialize, deserialize};
       if(version!==photoVersion)return;
       const meta=typeof D.inspectPhotoMetadata==='function'?D.inspectPhotoMetadata(bytes):null;
 
-      let embedRgba=null,fallbackKind='ref',fallbackCustom='';
+      let embedRgba=null,fallbackKind='ref',fallbackCustom='',fullSource=null;
       if(isRawExt){
         const rawPrev=D.extractRawPreviewJpeg(bytes);
         if(rawPrev){
           try{
-            const img=await decodeBlobViaImg(new Blob([rawPrev.jpeg],{type:'image/jpeg'}));
+            const jBlob=new Blob([rawPrev.jpeg],{type:'image/jpeg'});
+            const img=await decodeBlobViaImg(jBlob);
             if(version!==photoVersion)return;
-            embedRgba=extractRgbaFromImg(img,rawPrev.orientation);
+            embedRgba=extractRgbaFromImg(img,rawPrev.orientation,PREVIEW_MAX);
+            fullSource={kind:'blob',blob:jBlob,orientation:rawPrev.orientation};
             fallbackKind='raw';
           }catch(imgErr){
             if(!meta?.canDecodeBayer)throw imgErr;
@@ -5802,44 +5976,47 @@ return {serialize, deserialize};
           const tiffRas=await D.decodeTiffRaster(bytes);
           if(version!==photoVersion)return;
           if(!tiffRas)throw Error(lang==='en'?'Could not extract preview from RAW file.':'无法从该 RAW 文件提取预览图。');
-          embedRgba=scaleRgbaToMax(tiffRas,700,900);fallbackKind='custom';fallbackCustom=tiffRas.format;
+          embedRgba=scaleRgbaToMax(tiffRas,PREVIEW_MAX);fullSource={kind:'raster',raster:tiffRas};fallbackKind='custom';fallbackCustom=tiffRas.format;
         }
       }else if(ext==='tif'||ext==='tiff'){
         const tiffRas=await D.decodeTiffRaster(bytes);
         if(version!==photoVersion)return;
         if(tiffRas){
-          embedRgba=scaleRgbaToMax(tiffRas,700,900);fallbackKind='custom';fallbackCustom=tiffRas.format+' · sRGB';
+          embedRgba=scaleRgbaToMax(tiffRas,PREVIEW_MAX);fullSource={kind:'raster',raster:tiffRas};fallbackKind='custom';fallbackCustom=tiffRas.format+' · sRGB';
         }else{
           const rawPrev=D.extractRawPreviewJpeg(bytes);
           if(rawPrev||!meta?.canDecodeBayer){
-            const img=await decodeBlobViaImg(rawPrev?new Blob([rawPrev.jpeg],{type:'image/jpeg'}):file);
+            const jBlob=rawPrev?new Blob([rawPrev.jpeg],{type:'image/jpeg'}):file;
+            const img=await decodeBlobViaImg(jBlob);
             if(version!==photoVersion)return;
-            embedRgba=extractRgbaFromImg(img,rawPrev?rawPrev.orientation:1);fallbackKind='custom';fallbackCustom='TIFF · sRGB';
+            const ori=rawPrev?rawPrev.orientation:1;
+            embedRgba=extractRgbaFromImg(img,ori,PREVIEW_MAX);fullSource={kind:'blob',blob:jBlob,orientation:ori};fallbackKind='custom';fallbackCustom='TIFF · sRGB';
           }
         }
       }else if(['ppm','pgm','pnm','tga','hdr','pfm'].includes(ext)){
         const dec=D.decodeNetpbm(bytes)||D.decodeHdrOrPfm(bytes)||D.decodeTga(bytes);
         if(!dec)throw Error(lang==='en'?'Could not decode image file.':'无法解析该图像。');
-        embedRgba=scaleRgbaToMax(dec,700,900);fallbackKind='custom';fallbackCustom=dec.format+' · sRGB';
+        embedRgba=scaleRgbaToMax(dec,PREVIEW_MAX);fullSource={kind:'raster',raster:dec};fallbackKind='custom';fallbackCustom=dec.format+' · sRGB';
       }else{
         try{
           const img=await decodeBlobViaImg(file);
           if(version!==photoVersion)return;
-          embedRgba=extractRgbaFromImg(img,1);
+          embedRgba=extractRgbaFromImg(img,1,PREVIEW_MAX);fullSource={kind:'blob',blob:file,orientation:1};
         }catch{
           const tiffRas=await D.decodeTiffRaster(bytes);
           if(version!==photoVersion)return;
           if(tiffRas){
-            embedRgba=scaleRgbaToMax(tiffRas,700,900);fallbackKind='custom';fallbackCustom=tiffRas.format+' · sRGB';
+            embedRgba=scaleRgbaToMax(tiffRas,PREVIEW_MAX);fullSource={kind:'raster',raster:tiffRas};fallbackKind='custom';fallbackCustom=tiffRas.format+' · sRGB';
           }else{
             const rawPrev=D.extractRawPreviewJpeg(bytes);
             if(rawPrev){
-              const img=await decodeBlobViaImg(new Blob([rawPrev.jpeg],{type:'image/jpeg'}));
+              const jBlob=new Blob([rawPrev.jpeg],{type:'image/jpeg'});
+              const img=await decodeBlobViaImg(jBlob);
               if(version!==photoVersion)return;
-              embedRgba=extractRgbaFromImg(img,rawPrev.orientation);fallbackKind='embed';
+              embedRgba=extractRgbaFromImg(img,rawPrev.orientation,PREVIEW_MAX);fullSource={kind:'blob',blob:jBlob,orientation:rawPrev.orientation};fallbackKind='embed';
             }else if(!meta?.canDecodeBayer){
               const dec=D.decodeNetpbm(bytes)||D.decodeHdrOrPfm(bytes)||D.decodeTga(bytes);
-              if(dec){embedRgba=scaleRgbaToMax(dec,700,900);fallbackKind='custom';fallbackCustom=dec.format+' · sRGB';}
+              if(dec){embedRgba=scaleRgbaToMax(dec,PREVIEW_MAX);fullSource={kind:'raster',raster:dec};fallbackKind='custom';fallbackCustom=dec.format+' · sRGB';}
               else if(['heic','heif','hif'].includes(ext))throw Error(lang==='en'?'HEIC/HIF requires Safari or conversion to JPG/PNG first.':'当前浏览器不支持直接解码 HEIC/HIF（Safari 可直接打开，或先转为 JPG/PNG）。');
               else throw Error(lang==='en'?'Unsupported image format.':'无法读取该照片格式。');
             }
@@ -5848,7 +6025,7 @@ return {serialize, deserialize};
       }
 
       photoState={
-        version,fileName:file.name||'',bytes,meta,embedRgba,
+        version,fileName:file.name||'',bytes,meta,embedRgba,fullSource,
         defilterRgba:null,bayerRgba:null,fallbackKind,fallbackCustom,
         mode:'auto',activeAction:'none',lastMs:0,bayerMatrixSource:''
       };
@@ -5883,6 +6060,7 @@ return {serialize, deserialize};
       result=shownResult=candidate;
       baseParams=C.cloneParams(candidate.params);
       activeParams=buildActiveParams();
+      fitLutCache=null;
       setToneSlidersEnabled(true);
       refreshMetricsDisplay();
       showWarnings(result.warnings);
@@ -5896,7 +6074,83 @@ return {serialize, deserialize};
   $('convert').addEventListener('click',()=>{if(!ready())return;invalidate();scheduleFit(0);});
   $('cancel').addEventListener('click',()=>{invalidate();fitKey='fitCancelled';preview();setStatusKey('stCancelled');});
 
-  function save(data,type,name){const blob=new Blob([data],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);}
+  function saveBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);}
+  function save(data,type,name){saveBlob(new Blob([data],{type}),name);}
+  function canvasToJpegBlob(canvas){
+    if(typeof canvas.toBlob==='function'){
+      return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('JPG 编码失败。')),'image/jpeg',EXPORT_JPG_Q));
+    }
+    const px=canvas._pixels||new Uint8ClampedArray(4);
+    return Promise.resolve(new Blob([px],{type:'image/jpeg'}));
+  }
+  function sanitizeStem(s,fallback='preview'){
+    const clean=String(s||'').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|\s]+/g,'_').replace(/^_+|_+$/g,'');
+    return clean.slice(0,48)||fallback;
+  }
+  async function exportPreviewHd(kind){
+    const btnId=kind==='orig'?'saveOrig':kind==='target'?'saveTarget':'saveFitted';
+    const btn=$(btnId);
+    if(!btn||btn.disabled)return;
+    if(kind==='target'&&!ready())return;
+    const renderP=activeParams||shownResult?.params;
+    if(kind==='fitted'&&!renderP)return;
+
+    btn.disabled=true;btn.classList.add('busy');
+    if(!busy)setStatusKey('stExportingPhoto');
+    try{
+      const st=photoState;
+      let baseRgba=null,invLut=null,stdChrScale=0;
+      if(st&&st.activeAction==='bayer'){
+        baseRgba=await runPhotoBayer(st.bytes,{maxDim:EXPORT_MAX},'export');
+      }else if(st&&st.fullSource){
+        if(st.fullSource.kind==='blob'){
+          const img=await decodeBlobViaImg(st.fullSource.blob);
+          baseRgba=extractRgbaFromImg(img,st.fullSource.orientation,EXPORT_MAX);
+        }else if(st.fullSource.kind==='raster'){
+          baseRgba=scaleRgbaToMax(st.fullSource.raster,EXPORT_MAX);
+        }
+        if(st.activeAction==='defilter-fc'){
+          invLut=st.defilterRgba?.invLut||null;
+          if(!invLut&&st.meta?.embeddedParams&&typeof D.buildInverseLut3D==='function'){
+            invLut=D.buildInverseLut3D(C.makeRenderer(st.meta.embeddedParams),17);
+          }
+        }else if(st.activeAction==='defilter-std'){
+          stdChrScale=st.defilterRgba?.chrScale||0.799;
+        }
+      }else{
+        baseRgba={width:src.width,height:src.height,data:new Uint8ClampedArray(getSrcRgba())};
+      }
+      if(!baseRgba||!baseRgba.data)throw Error(lang==='en'?'Export failed.':'无法导出高清图像。');
+
+      const renderLut=kind==='target'?getTargetLut():kind==='fitted'?getFitLut(renderP,33):null;
+      let finalData=baseRgba.data;
+      if(renderLut||invLut||stdChrScale){
+        const res=await runPhotoApplyLut(baseRgba.data,renderLut?.data?renderLut:null,invLut,stdChrScale);
+        if(res&&res.data)finalData=res.data;
+      }
+
+      const expCanvas=document.createElement('canvas');
+      expCanvas.width=baseRgba.width;expCanvas.height=baseRgba.height;
+      const ectx=expCanvas.getContext('2d');
+      ectx.putImageData(makeImageData(ectx,finalData,baseRgba.width,baseRgba.height),0,0);
+      const jpgBlob=await canvasToJpegBlob(expCanvas);
+
+      const photoStem=sanitizeStem(st?.fileName,'sample');
+      const lookStem=sanitizeStem($('presetName')?.value||sourceName,'look');
+      const suffix=kind==='orig'?(st?.activeAction==='bayer'?'Bayer_ZeroFC':st?.activeAction?.startsWith('defilter')||st?.activeAction==='zero-fc'?'ZeroFC':'Original'):kind==='target'?lookStem+'_LUT':lookStem+'_NP3';
+      const outName=photoStem+'_'+suffix+'.jpg';
+      saveBlob(jpgBlob,outName);
+      if(!busy)setStatusKey('stPhotoExported',outName);
+    }catch(err){
+      if(!(err&&err._cancelled))setStatusError(err);
+    }finally{
+      btn.disabled=false;btn.classList.remove('busy');
+    }
+  }
+  if($('saveOrig'))$('saveOrig').addEventListener('click',()=>exportPreviewHd('orig'));
+  if($('saveTarget'))$('saveTarget').addEventListener('click',()=>exportPreviewHd('target'));
+  if($('saveFitted'))$('saveFitted').addEventListener('click',()=>exportPreviewHd('fitted'));
+
   function filename(){const slot=Number($('slot').value);if(!Number.isInteger(slot)||slot<1||slot>99)throw Error('卡槽编号须为 1–99。');return 'PICCON'+String(slot).padStart(2,'0');}
   $('download').addEventListener('click',()=>{
     if(!result||!activeParams)return;
