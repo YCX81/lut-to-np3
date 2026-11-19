@@ -16,7 +16,9 @@
 
 1. 在线打开或用 Chrome / Edge / Safari 打开 **`LUT-to-NP3.html`**。
 2. 拖入任意自定义 `.cube` 文件，或在下拉菜单直接选用内置的 **34 款 MIT 开源胶片预设**。
-3. 可拖入或粘贴自己的照片预览效果（支持 `JPG`、`PNG`、`WebP`、`AVIF`、`TIFF` 以及 `.NEF` / `.RAF` / `.ARW` / `.CR3` / `.DNG` 等主流相机 RAW 内嵌预览）。
+3. 可拖入或粘贴自己的照片预览效果（支持 `JPG`、`PNG`、`WebP`、`AVIF`、`TIFF` 以及 `.NEF` / `.RAF` / `.ARW` / `.CR3` / `.DNG` 等主流相机 RAW）：
+   - **尼康底图基准自动还原（防滤镜二次叠加）**：上传尼康 `.NEF` / 原片 `.JPG` 时自动解析机内优化校准（含云创配方 `XMP-crd` 与 257 点曲线表），支持在 Web Worker 后台通过 `17³` 逆向 LUT 自动剥离机内彩色云创／Flexible Color 滤镜（**兼容 `HE / HE★` TicoRAW 压缩**）并补偿 `Standard / Auto` 基线，还原至 `ZeroFC` 零基准预览。
+   - **纯 JS 原始 RAW（Bayer）解码**：支持离线直接解码尼康 12/14-bit 无损／未压缩 `.NEF` 及 Adobe `.DNG`（无损 JPEG SOF3 / 未压缩），内置 Z 系列机身矩阵与标定 `ZeroFC` 曲线；可在顶部状态栏随时一键切换「自动还原 ZeroFC / 纯原始 RAW (Bayer) / 保留原图内嵌预览」。
 4. 按需开启可选功能：
    - **按当前预览照片色彩优化**：遇到超出尼康参数全局表达能力的强风格 LUT 时，优先贴合当前画面中的色彩分布。
    - **机内质感与微调**（默认折叠）：按需展开，支持微调**曝光补偿**、对比度、暗部黑位／褪色感、**白平衡（色温冷暖／色调绿品）**、**色相偏移**、饱和度偏移，以及写入机内 `.NP3` 的清晰度与锐化（含标准／胶片柔化／街拍硬朗快捷预设）。
@@ -93,7 +95,9 @@ A single-file, 100% client-side converter that fits `.cube` LUTs into **Nikon Im
 
 1. Open the live page or launch **`LUT-to-NP3.html`** in Chrome, Edge, or Safari.
 2. Drop any custom `.cube` LUT file, or choose one of the **34 built-in MIT-licensed film presets** from the dropdown.
-3. Drop or paste your own photo to preview the look (supports `JPG`, `PNG`, `WebP`, `AVIF`, `TIFF`, and embedded previews from `.NEF` / `.RAF` / `.ARW` / `.CR3` / `.DNG` camera RAW files).
+3. Drop or paste your own photo to preview the look (supports `JPG`, `PNG`, `WebP`, `AVIF`, `TIFF`, and `.NEF` / `.RAF` / `.ARW` / `.CR3` / `.DNG` camera RAW files):
+   - **Automatic Nikon ZeroFC Baseline Recovery (No Double-Stacking)**: Automatically reads Nikon `.NEF` / camera `.JPG` Picture Control metadata (`XMP-crd` + 257-entry tone curve LUT) and strips baked-in color Imaging Cloud / Flexible Color looks via a `17³` inverse 3D LUT in a background Web Worker (**works even on proprietary Nikon `HE / HE★` TicoRAW NEFs**), plus `Standard / Auto` inverse baseline compensation.
+   - **Pure-JS Raw Bayer Decoding**: Decodes 12/14-bit Nikon Lossless/Uncompressed `.NEF` and Adobe `.DNG` (Uncompressed & Lossless JPEG SOF3) directly in the browser with Z-series camera matrices and a calibrated `ZeroFC` shoulder curve; toggle anytime between *Auto ZeroFC*, *Raw Bayer*, and *Embedded Preview*.
 4. Optional controls:
    - **Optimize for Current Photo**: Prioritizes colors present in your current preview image when fitting strong stylistic LUTs that exceed global parameter limits.
    - **In-Camera Texture & Fine-Tune** *(collapsed by default)*: Expand to adjust **Exposure Offset**, Contrast, Black Point / Matte, **White Balance (Temp & Tint)**, **Hue Shift**, and Saturation, or configure in-camera Clarity and Sharpening written directly into the `.NP3` file (`Standard` / `Soft Film` / `Crisp Street` quick presets included).

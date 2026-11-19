@@ -66,6 +66,19 @@ progress{width:100%;margin-top:12px;height:4px;accent-color:var(--orange)}
 .photo-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
 .photo-hint{font-size:10.5px;color:var(--muted)}
 .image-button{font-size:11px;border:1px solid #c5c9c0;padding:6px 12px;border-radius:5px;background:var(--white)}
+.photo-meta-bar{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;flex-wrap:wrap;padding:8px 12px;margin:0 0 12px;border-radius:7px;border:1px solid var(--line);background:var(--white);font-size:11.5px;line-height:1.45;color:var(--ink)}
+.photo-meta-bar.ok{background:#f2f6f1;border-color:#d4e0d4;color:#274a39}
+.photo-meta-bar.info{background:#f5f4ef;border-color:#d8dbd2;color:#3d4441}
+.photo-meta-bar.warn{background:#f7eadb;border-color:#e4caa8;color:#7c4d2b}
+.photo-meta-info{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 280px}
+.photo-meta-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--muted)}
+.photo-meta-bar.ok .photo-meta-dot{background:var(--green)}
+.photo-meta-bar.info .photo-meta-dot{background:#5c6b66}
+.photo-meta-bar.warn .photo-meta-dot{background:var(--orange)}
+#photoMetaText{overflow-wrap:anywhere}
+.photo-meta-mode{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);flex:none;white-space:nowrap}
+.photo-meta-mode select{padding:4px 8px;border:1px solid #cdd2c8;border-radius:5px;background:var(--white);color:var(--ink);font-size:11px;max-width:260px}
+.photo-meta-mode select option:disabled{color:#a8ada8}
 .previews{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 figure{margin:0;min-width:0}
 .canvas-wrap{border-radius:7px;overflow:hidden;background:#d3d7cf;aspect-ratio:4/5;display:flex;align-items:center;justify-content:center}
@@ -131,6 +144,9 @@ figcaption>small{font-size:10px;color:var(--muted)}
   .workspace{display:flex;flex-direction:column}
   .settings{width:100%}
   .photo-hint{display:none}
+  .photo-meta-bar{padding:8px 10px}
+  .photo-meta-mode{width:100%;justify-content:space-between}
+  .photo-meta-mode select{flex:1;max-width:none}
   .metrics{grid-template-columns:1fr 1fr}
   .metric-note{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);padding:10px 0 0}
 }
@@ -195,6 +211,21 @@ figcaption>small{font-size:10px;color:var(--muted)}
           <small class="photo-hint" data-i18n="photoHint">可直接拖入或粘贴 JPG / PNG / TIFF / NEF / RAF / ARW / CR3 / DNG</small>
           <label class="image-button"><span data-i18n="changePhotoBtn">换一张照片</span><input type="file" id="photo" accept="image/*,.jpg,.jpeg,.png,.webp,.avif,.heic,.heif,.hif,.tif,.tiff,.bmp,.gif,.nef,.nrw,.raf,.arw,.cr2,.cr3,.dng,.orf,.rw2,.pef,.srw,.3fr,.iiq,.rwl,.tga,.ppm,.pgm,.pnm,.hdr,.pfm" aria-label="Change preview photo"></label>
         </div>
+      </div>
+
+      <div class="photo-meta-bar" id="photoMetaBar" hidden>
+        <div class="photo-meta-info">
+          <span class="photo-meta-dot" aria-hidden="true"></span>
+          <span id="photoMetaText"></span>
+        </div>
+        <label class="photo-meta-mode">
+          <span data-i18n="photoBaseLabel">原图基准</span>
+          <select id="photoBaseMode" aria-label="Photo baseline mode">
+            <option value="auto" id="photoBaseOptAuto" data-i18n="baseModeAuto" selected>自动还原 ZeroFC 基准（推荐）</option>
+            <option value="bayer" id="photoBaseOptBayer" data-i18n="baseModeBayer" disabled>纯原始 RAW 解码（Bayer → ZeroFC）</option>
+            <option value="embed" id="photoBaseOptEmbed" data-i18n="baseModeEmbed">保留原图内嵌预览（不剥离）</option>
+          </select>
+        </label>
       </div>
 
       <div class="previews">
@@ -880,7 +911,7 @@ return {serialize, deserialize};
   else root.LutNP3 = factory(root.NP3Reference, root.NikonModelData);
 })(globalThis, function lutNp3Factory(NP3, MODEL) {
   'use strict';
-  const VERSION = '1.2.0', GUARD_SLACK = {rgb: 4.5, chroma: 3, max: 10}, NEUTRAL_WEIGHT = 2;
+  const VERSION = '1.3.0', GUARD_SLACK = {rgb: 4.5, chroma: 3, max: 10}, NEUTRAL_WEIGHT = 2;
   const clamp = (x, a = 0, b = 1) => (x < a ? a : x > b ? b : x);
   const mix = (a, b, t) => a + (b - a) * t;
   const COLORS = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'magenta'];
@@ -1352,8 +1383,28 @@ return {serialize, deserialize};
 
   // Stage-cached batch evaluator for fit(): matches makeRenderer (when useNN=true) or fast physics
   // backbone (when useNN=false, paired with outer neural defect correction for 40x faster Jacobians).
-  function makeBatchEvaluator(rgbFlat, Npx, useNN = true) {
+  function makeBatchEvaluator(rgbFlat, Npx, useNN = true, proj = null) {
     const activeNN = useNN ? NN : null, hasWide = Boolean(activeNN && activeNN.WWide);
+    const pWTan = proj ? proj.wTan : null, shAlpha = proj && proj.shAlpha ? proj.shAlpha : 0, shNorm = 1 + shAlpha * 0.12;
+    let rRadTmp = 0, rTanTmp = 0;
+    // Polar-chord chromatic residual with CIEDE2000 S_H angular compression: decouples hue angle from chroma magnitude.
+    function evalChroma2(idx, aOut, bOut, aRef, bRef, wRad) {
+      if (!pWTan) { rRadTmp = wRad * (aOut - aRef); rTanTmp = wRad * (bOut - bRef); return; }
+      const wT = pWTan[idx];
+      if (wT === wRad && !shAlpha) { rRadTmp = wRad * (aOut - aRef); rTanTmp = wRad * (bOut - bRef); return; }
+      const cRef2 = aRef * aRef + bRef * bRef, cOut2 = aOut * aOut + bOut * bOut;
+      if (cRef2 <= 1.44e-4 || cOut2 <= 1.44e-4) { rRadTmp = wRad * (aOut - aRef); rTanTmp = wRad * (bOut - bRef); return; }
+      const cRef = Math.sqrt(cRef2), cOut = Math.sqrt(cOut2), invRef = 1 / cRef, invOut = 1 / cOut;
+      const urA = aRef * invRef, urB = bRef * invRef, uoA = aOut * invOut, uoB = bOut * invOut;
+      const cosD = uoA * urA + uoB * urB, sinD = urA * uoB - urB * uoA;
+      const cEff = shAlpha ? (cRef * shNorm) / (1 + shAlpha * cRef) : cRef;
+      const chord = cEff * (1.4142135623730951 * sinD / Math.sqrt(Math.max(1e-6, 1 + cosD)));
+      const gOut = (cOut2 / (cOut2 + 4e-4)) * (cRef2 / (cRef2 + 4e-4));
+      const rad = cOut - cRef, da = aOut - aRef, db = bOut - bRef;
+      const linRad = da * urA + db * urB, linTan = db * urA - da * urB;
+      rRadTmp = wRad * (linRad + gOut * (rad - linRad));
+      rTanTmp = wT * (linTan + gOut * (chord - linTan));
+    }
     const y0A = new Float64Array(Npx), cb0A = new Float64Array(Npx), cr0A = new Float64Array(Npx);
     const H1 = activeNN ? activeNN.h1 : 0, H2 = activeNN ? activeNN.h2 : 0;
     const h1Base = activeNN ? new Float64Array(Npx * H1) : null, h1WBase = hasWide ? new Float64Array(Npx * H1) : null;
@@ -1592,9 +1643,10 @@ return {serialize, deserialize};
       for (let idx = 0; idx < Npx; idx++) {
         evalPixel(idx, rgbOutTmp);
         srgbToOklabInto(rgbOutTmp[0], rgbOutTmp[1], rgbOutTmp[2], labTmp, 0);
-        const k = 3 * idx, rL = wL[idx] * (labTmp[0] - refLab[k]), da = labTmp[1] - refLab[k + 1], db = labTmp[2] - refLab[k + 2];
-        const rA = wAB[idx] * da, rB = wAB[idx] * db;
-        loss += rL * rL + rA * rA + rB * rB;
+        const k = 3 * idx, aRef = refLab[k + 1], bRef = refLab[k + 2];
+        const rL = wL[idx] * (labTmp[0] - refLab[k]), da = labTmp[1] - aRef, db = labTmp[2] - bRef;
+        evalChroma2(idx, labTmp[1], labTmp[2], aRef, bRef, wAB[idx]);
+        loss += rL * rL + rRadTmp * rRadTmp + rTanTmp * rTanTmp;
         const z = wbZone[idx];
         if (z === 0) { zDa0 += da; zDb0 += db; }
         else if (z === 1) { zDa1 += da; zDb1 += db; }
@@ -1616,8 +1668,9 @@ return {serialize, deserialize};
         srgbToOklabInto(rgbOutTmp[0], rgbOutTmp[1], rgbOutTmp[2], labTmp, 0);
         const da = labTmp[1] - refLab[k + 1], db = labTmp[2] - refLab[k + 2];
         outR[k] = wl * (labTmp[0] - refLab[k]);
-        outR[k + 1] = wAB[idx] * da;
-        outR[k + 2] = wAB[idx] * db;
+        evalChroma2(idx, labTmp[1], labTmp[2], refLab[k + 1], refLab[k + 2], wAB[idx]);
+        outR[k + 1] = rRadTmp;
+        outR[k + 2] = rTanTmp;
         const z = wbZone[idx];
         if (z === 0) { zDa0 += da; zDb0 += db; }
         else if (z === 1) { zDa1 += da; zDb1 += db; }
@@ -1670,8 +1723,9 @@ return {serialize, deserialize};
           else { dDa2 += dda; dDb2 += ddb; }
         }
         outR[k] = wl * (labTmp[0] - refLab[k]);
-        outR[k + 1] = wAB[idx] * da;
-        outR[k + 2] = wAB[idx] * db;
+        evalChroma2(idx, labTmp[1], labTmp[2], refLab[k + 1], refLab[k + 2], wAB[idx]);
+        outR[k + 1] = rRadTmp;
+        outR[k + 2] = rTanTmp;
       }
       const wbBase = Npx * 3;
       outR[wbBase] = baseR[wbBase] + wbWeight * dDa0 * wbInvCnt[0];
@@ -1692,8 +1746,10 @@ return {serialize, deserialize};
       for (let idx = 0; idx < Npx; idx++) {
         evalPixel(idx, rgbOutTmp);
         srgbToOklabInto(rgbOutTmp[0], rgbOutTmp[1], rgbOutTmp[2], labTmp, 0);
-        const k = 3 * idx, rL = wL[idx] * (labTmp[0] - refLab[k]), da = labTmp[1] - refLab[k + 1], db = labTmp[2] - refLab[k + 2];
-        const rA = wAB[idx] * da, rB = wAB[idx] * db, e = rL * rL + rA * rA + rB * rB;
+        const k = 3 * idx, aRef = refLab[k + 1], bRef = refLab[k + 2];
+        const rL = wL[idx] * (labTmp[0] - refLab[k]), da = labTmp[1] - aRef, db = labTmp[2] - bRef;
+        evalChroma2(idx, labTmp[1], labTmp[2], aRef, bRef, wAB[idx]);
+        const e = rL * rL + rRadTmp * rRadTmp + rTanTmp * rTanTmp;
         basePixErr[idx] = e; baseLossSum += e;
         const z = wbZone[idx];
         if (z >= 0) {
@@ -1727,9 +1783,10 @@ return {serialize, deserialize};
         const yOut = evalSpline17(y, ys, sb, sc, sd);
         const ro = yOut + 1.402 * cr, bo = yOut + 1.772 * cb, go = (yOut - 0.299 * ro - 0.114 * bo) / 0.587;
         srgbToOklabInto(clamp(ro), clamp(go), clamp(bo), labTmp, 0);
-        const k = 3 * idx, rL = wL[idx] * (labTmp[0] - refLab[k]), da = labTmp[1] - refLab[k + 1], db = labTmp[2] - refLab[k + 2];
-        const rA = wAB[idx] * da, rB = wAB[idx] * db;
-        loss += (rL * rL + rA * rA + rB * rB) - basePixErr[idx];
+        const k = 3 * idx, aRef = refLab[k + 1], bRef = refLab[k + 2];
+        const rL = wL[idx] * (labTmp[0] - refLab[k]), da = labTmp[1] - aRef, db = labTmp[2] - bRef;
+        evalChroma2(idx, labTmp[1], labTmp[2], aRef, bRef, wAB[idx]);
+        loss += (rL * rL + rRadTmp * rRadTmp + rTanTmp * rTanTmp) - basePixErr[idx];
         const z = wbZone[idx];
         if (z === 0) { zDa0 += da - basePixDa[idx]; zDb0 += db - basePixDb[idx]; }
         else if (z === 1) { zDa1 += da - basePixDa[idx]; zDb1 += db - basePixDb[idx]; }
@@ -1841,10 +1898,11 @@ return {serialize, deserialize};
   // Expected RMS model drift per slider unit (0..1 scale), calibrated on NX Studio engine renders:
   // keeps joint optimisation from exploiting regions where the model is less certain, plus a light
   // second-difference curvature penalty so 17-point natural splines do not ring between nodes.
-  const UNCERTAINTY = {saturation: 7.5e-5, mixer: 4.4e-5, tint: 1.0e-4, gradeBrightness: 6.5e-5, blending: 2.5e-5, balance: 4e-5, curveSmooth: 1.5e-4};
-  function uncertainty(q) {
+  const UNCERTAINTY = {saturation: 7.5e-5, mixerHue: 2.0e-5, mixerChroma: 4.4e-5, mixerLuma: 4.4e-5, tint: 1.0e-4, gradeBrightness: 6.5e-5, blending: 2.5e-5, balance: 4e-5, curveSmooth: 1.5e-4};
+  const HUE_CFG_DEFAULT = {secMax: 1.8, secMin: 0.85, secPow: 0.55, secMetric: 'rho2', secTarget: 'chroma', mixerHue: UNCERTAINTY.mixerHue, hueBoost: 1.65, hueC0: 0.045, shAlpha: 3.5};
+  function uncertainty(q, mHue = UNCERTAINTY.mixerHue) {
     let t = (UNCERTAINTY.saturation * q.saturation) ** 2 + (UNCERTAINTY.blending * ((q.blending ?? 50) - 50)) ** 2 + (UNCERTAINTY.balance * (q.balance ?? 0)) ** 2;
-    for (const a of q.mixer) t += (UNCERTAINTY.mixer * a[0]) ** 2 + (UNCERTAINTY.mixer * a[1]) ** 2 + (UNCERTAINTY.mixer * a[2]) ** 2;
+    for (const a of q.mixer) t += (mHue * a[0]) ** 2 + (UNCERTAINTY.mixerChroma * a[1]) ** 2 + (UNCERTAINTY.mixerLuma * a[2]) ** 2;
     for (const a of q.grading) t += (UNCERTAINTY.tint * a[0]) ** 2 + (UNCERTAINTY.tint * a[1]) ** 2 + (UNCERTAINTY.gradeBrightness * (a[2] || 0)) ** 2;
     for (let i = 1; i < 16; i++) { const d2 = (q.curve[i + 1] - 2 * q.curve[i] + q.curve[i - 1]) * 100; t += (UNCERTAINTY.curveSmooth * d2) ** 2; }
     return t;
@@ -1852,6 +1910,8 @@ return {serialize, deserialize};
 
   async function fit(cube, opts = {}, progress = () => {}, cancelled = () => false) {
     if (cancelled()) throw Error('已取消转换。');
+    const hCfg = opts._hueCfg ? {...HUE_CFG_DEFAULT, ...opts._hueCfg} : HUE_CFG_DEFAULT;
+    const mHueUnc = hCfg.mixerHue;
     const target = makeTarget(cube, opts), p = neutral(), nodeX = X17.map(x => x / 255), gray = nodeX.map(x => luma(target([x, x, x])));
     const neutralSet = Array.from({length: 129}, (_, i) => { const rgb = [i / 128, i / 128, i / 128]; return {rgb, ref: target(rgb)}; });
     let grayC2 = 0;
@@ -1879,20 +1939,63 @@ return {serialize, deserialize};
       ...neutralSet.map(({rgb, ref}) => ({rgb, target: ref, weight: baseNeutralWeight, lowSat: true})),
     ];
     const nTrain = training.length, tIn = new Float64Array(nTrain * 3), tRefLab = new Float64Array(nTrain * 3);
-    const tWL = new Float64Array(nTrain), tWAB = new Float64Array(nTrain), tWbZone = new Int8Array(nTrain);
+    const tWL = new Float64Array(nTrain), tWAB = new Float64Array(nTrain), tWTan = new Float64Array(nTrain);
+    const tUA = new Float64Array(nTrain), tUB = new Float64Array(nTrain), tCRef = new Float64Array(nTrain), tWbZone = new Int8Array(nTrain);
     const tZoneCnt = [0, 0, 0], labInit = new Float64Array(3);
+
+    const effSecMax = hasScene ? 1 + (hCfg.secMax - 1) * 0.35 : hCfg.secMax;
+    const secFactors = new Float64Array(nTrain).fill(1);
+    if (effSecMax > 1.001) {
+      const secMass = new Float64Array(8);
+      const s0Arr = new Int8Array(nTrain), fracArr = new Float64Array(nTrain), gInArr = new Float64Array(nTrain);
+      for (let i = 0; i < nTrain; i++) {
+        const rgb = training[i].rgb, y0 = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
+        const cb0 = (rgb[2] - y0) / 1.772, cr0 = (rgb[0] - y0) / 1.402, rho2 = cb0 * cb0 + cr0 * cr0;
+        if (rho2 <= 1.6e-3) continue;
+        const gIn = rho2 / (rho2 + 0.003025);
+        const deg = ((Math.atan2(cr0, cb0) * 180 / Math.PI) + 360) % 360;
+        const u = deg / 45 - 0.5, fl = Math.floor(u), s0 = ((fl % 8) + 8) % 8, s1 = (s0 + 1) % 8, fr = u - fl;
+        const m = training[i].weight * gIn * (hCfg.secMetric === 'rho2' ? rho2 : 1);
+        secMass[s0] += m * (1 - fr); secMass[s1] += m * fr;
+        s0Arr[i] = s0; fracArr[i] = fr; gInArr[i] = gIn;
+      }
+      let meanM = 0; for (let s = 0; s < 8; s++) meanM += secMass[s]; meanM /= 8;
+      if (meanM > 1e-9) {
+        const secBoost = new Float64Array(8);
+        for (let s = 0; s < 8; s++) secBoost[s] = clamp((meanM / Math.max(1e-9, secMass[s])) ** hCfg.secPow, hCfg.secMin, effSecMax);
+        for (let i = 0; i < nTrain; i++) {
+          const gIn = gInArr[i]; if (!gIn) continue;
+          const s0 = s0Arr[i], s1 = (s0 + 1) % 8, b = secBoost[s0] * (1 - fracArr[i]) + secBoost[s1] * fracArr[i];
+          secFactors[i] = 1 + (b - 1) * gIn;
+        }
+      }
+    }
+
+    const hueC0Sq = hCfg.hueC0 * hCfg.hueC0;
     let totalWeight = 0;
     for (let i = 0; i < nTrain; i++) {
-      const t = training[i], sw = Math.sqrt(t.weight);
-      totalWeight += t.weight;
+      const t = training[i], secF = secFactors[i];
+      const wSample = hCfg.secTarget === 'all' ? t.weight * secF : t.weight;
+      const sw = Math.sqrt(wSample);
+      totalWeight += wSample;
       tIn[3 * i] = t.rgb[0]; tIn[3 * i + 1] = t.rgb[1]; tIn[3 * i + 2] = t.rgb[2];
       srgbToOklabInto(t.target[0], t.target[1], t.target[2], tRefLab, 3 * i);
       srgbToOklabInto(t.rgb[0], t.rgb[1], t.rgb[2], labInit, 0);
-      const cIn = Math.hypot(labInit[1], labInit[2]), cRef = Math.hypot(tRefLab[3 * i + 1], tRefLab[3 * i + 2]);
+      const aRef = tRefLab[3 * i + 1], bRef = tRefLab[3 * i + 2];
+      const cIn = Math.hypot(labInit[1], labInit[2]), cRef = Math.hypot(aRef, bRef);
       const cMax = cIn > cRef ? cIn : cRef;
-      // Adaptive Weber-Fechner chroma boost: protects neutral skies/roads on neutral-preserving LUTs while relaxing on colour-wash styles
       const chromaBoost = 1 + (1.5 * neutralPurity) / (1 + (cMax / 0.055) ** 2);
-      tWL[i] = sw; tWAB[i] = sw * chromaBoost;
+      const chrSecScale = hCfg.secTarget === 'chroma' ? Math.sqrt(secF) : 1;
+      tWL[i] = sw;
+      tWAB[i] = sw * chromaBoost * chrSecScale;
+      tCRef[i] = cRef;
+      if (cRef > 1e-9) {
+        tUA[i] = aRef / cRef; tUB[i] = bRef / cRef;
+        const gHue = (cRef * cRef) / (cRef * cRef + hueC0Sq);
+        tWTan[i] = tWAB[i] * (1 + (hCfg.hueBoost - 1) * gHue);
+      } else {
+        tUA[i] = 1; tUB[i] = 0; tWTan[i] = tWAB[i];
+      }
       if (t.lowSat) {
         const l0 = luma(t.rgb), z = l0 < 0.34 ? 0 : l0 < 0.68 ? 1 : 2;
         tWbZone[i] = z; tZoneCnt[z]++;
@@ -1906,9 +2009,11 @@ return {serialize, deserialize};
       const g = neutralSet[i].rgb[0]; nInFlat[3 * i] = nInFlat[3 * i + 1] = nInFlat[3 * i + 2] = g;
       nRefFlat[3 * i] = neutralSet[i].ref[0]; nRefFlat[3 * i + 1] = neutralSet[i].ref[1]; nRefFlat[3 * i + 2] = neutralSet[i].ref[2];
     }
+    const usePolar = hCfg.hueBoost !== 1.0 || Boolean(hCfg.shAlpha);
+    const tProj = usePolar ? {wTan: tWTan, shAlpha: hCfg.shAlpha || 0} : null;
     const neutBatch = makeBatchEvaluator(nInFlat, nNeut, true);
-    const trainBatch = makeBatchEvaluator(tIn, nTrain, false);
-    const trainNNBatch = makeBatchEvaluator(tIn, nTrain, true);
+    const trainBatch = makeBatchEvaluator(tIn, nTrain, false, tProj);
+    const trainNNBatch = makeBatchEvaluator(tIn, nTrain, true, tProj);
     const fastExceedsNeutral = (q, lim) => neutBatch.exceedsNeutral(q, nRefFlat, lim);
 
     const curveControls = [], gradeControls = [], colourControls = [];
@@ -2034,7 +2139,7 @@ return {serialize, deserialize};
         valid12 = false; valid3 = false; validMixBase = false;
         rawLoss = trainBatch.evalAllPercepLoss(p, tRefLab, tWL, tWAB, tWbZone, tWbInvCnt, tWbWeight);
       }
-      return rawLoss / (3 * totalWeight) + uncertainty(p);
+      return rawLoss / (3 * totalWeight) + uncertainty(p, mHueUnc);
     };
     const all = [...colourControls, ...curveControls, ...gradeControls];
     await search(all, evalLoss, [24, 12, 6, 3]);
@@ -2049,9 +2154,10 @@ return {serialize, deserialize};
     };
     const nRows = nTrain + nNeut;
     const rIn = new Float64Array(nRows * 3), rRefBase = new Float64Array(nRows * 3), rRefLab = new Float64Array(nRows * 3);
-    const rWL = new Float64Array(nRows), rWAB = new Float64Array(nRows), rWbZone = new Int8Array(nRows);
+    const rWL = new Float64Array(nRows), rWAB = new Float64Array(nRows), rWTan = new Float64Array(nRows);
+    const rUA = new Float64Array(nRows).fill(1), rUB = new Float64Array(nRows), rCRef = new Float64Array(nRows), rWbZone = new Int8Array(nRows);
     const rZoneCnt = [tZoneCnt[0], tZoneCnt[1], tZoneCnt[2]];
-    rIn.set(tIn); rRefBase.set(tRefLab); rWL.set(tWL); rWAB.set(tWAB); rWbZone.set(tWbZone);
+    rIn.set(tIn); rRefBase.set(tRefLab); rWL.set(tWL); rWAB.set(tWAB); rWTan.set(tWTan); rUA.set(tUA); rUB.set(tUB); rCRef.set(tCRef); rWbZone.set(tWbZone);
     rIn.set(nInFlat, nTrain * 3);
     for (let i = 0; i < nNeut; i++) {
       const idx = nTrain + i;
@@ -2060,13 +2166,14 @@ return {serialize, deserialize};
       rWbZone[idx] = z; rZoneCnt[z]++;
     }
     const rWbInvCnt = rZoneCnt.map(c => 1 / Math.max(1, c));
-    const lmBatch = makeBatchEvaluator(rIn, nRows, false);
+    const rProj = usePolar ? {wTan: rWTan, shAlpha: hCfg.shAlpha || 0} : null;
+    const lmBatch = makeBatchEvaluator(rIn, nRows, false, rProj);
     const lmNNBatch = NN ? makeBatchEvaluator(rIn, nRows, true) : null;
     const oppPhys = NN ? new Float64Array(nRows * 3) : null, oppNN = NN ? new Float64Array(nRows * 3) : null;
     const tRefAdj = new Float64Array(nTrain * 3);
     tRefAdj.set(tRefLab);
 
-    const PRIOR = [...Array(17).fill(0), UNCERTAINTY.saturation, ...Array(24).fill(UNCERTAINTY.mixer), ...[0, 1, 2].flatMap(() => [UNCERTAINTY.tint, UNCERTAINTY.tint, UNCERTAINTY.gradeBrightness]), UNCERTAINTY.blending, UNCERTAINTY.balance];
+    const PRIOR = [...Array(17).fill(0), UNCERTAINTY.saturation, ...Array.from({length: 8}, () => [mHueUnc, UNCERTAINTY.mixerChroma, UNCERTAINTY.mixerLuma]).flat(), ...[0, 1, 2].flatMap(() => [UNCERTAINTY.tint, UNCERTAINTY.tint, UNCERTAINTY.gradeBrightness]), UNCERTAINTY.blending, UNCERTAINTY.balance];
     const PRIOR0 = toVec(neutral());
     const nSmooth = 15, nWb = 6;
 
@@ -2108,7 +2215,7 @@ return {serialize, deserialize};
       const chromaNeutFactor = 1 + 1.5 * neutralPurity;
       for (let i = 0; i < nNeut; i++) {
         const idx = nTrain + i;
-        rWL[idx] = neutralWeight; rWAB[idx] = neutralWeight * chromaNeutFactor;
+        rWL[idx] = neutralWeight; rWAB[idx] = neutralWeight * chromaNeutFactor; rWTan[idx] = rWAB[idx];
       }
       let sw = 0; for (let i = 0; i < nRows; i++) sw += rWL[i] * rWL[i];
       const scale = Math.sqrt(3 * sw), wbW = scale * 1.4 * neutralPurity;
@@ -2202,7 +2309,7 @@ return {serialize, deserialize};
       return fromVec(v);
     }
 
-    const trainLoss = q => trainNNBatch.evalAllPercepLoss(q, tRefAdj, tWL, tWAB, tWbZone, tWbInvCnt, tWbWeight) / (3 * totalWeight) + uncertainty(q);
+    const trainLoss = q => trainNNBatch.evalAllPercepLoss(q, tRefAdj, tWL, tWAB, tWbZone, tWbInvCnt, tWbWeight) / (3 * totalWeight) + uncertainty(q, mHueUnc);
     const assign = q => { p.curve = q.curve.slice(); p.saturation = q.saturation; p.mixer = q.mixer.map(a => a.slice()); p.grading = q.grading.map(a => a.slice()); p.blending = q.blending; p.balance = q.balance; invalidateCache(); };
     const coordinate = cloneParams(p);
     let chosen = quantize(coordinate), chosenLoss = fastExceedsNeutral(chosen, limits) ? Infinity : trainLoss(chosen), refinement = 'coordinate';
@@ -2351,9 +2458,9 @@ return {serialize, deserialize};
 </script><script>/* Offline multi-format photo decoder for previewing LUTs & NP3s in the browser.
    Zero dependencies, no network. Supports:
    - Native browser formats: JPEG, PNG, WebP, AVIF, GIF, BMP, SVG, ICO, HEIC/HEIF/HIF (where OS/browser supports)
-   - Camera RAW embedded full-size preview extraction + EXIF orientation:
-     Nikon (.nef, .nrw), Fujifilm (.raf), Sony (.arw, .sr2), Canon (.cr2, .cr3), Adobe (.dng),
-     OM/Olympus (.orf), Panasonic (.rw2), Pentax (.pef), Samsung (.srw), Hasselblad (.3fr), Leica (.rwl), Phase One (.iiq)
+   - Camera RAW embedded full-size preview extraction + EXIF orientation + Nikon MakerNote / XMP-crd metadata inspection
+   - Phase 1 pure-JS Nikon Flexible Color & Standard/Auto de-filtering (17³ tetrahedral inverse LUT + calibrated Y'CbCr baseline, including HE/HE★ TicoRAW NEFs)
+   - Phase 2 pure-JS Bayer RAW decoding (Nikon 12/14-bit Lossless & Uncompressed NEF, Uncompressed & Lossless-JPEG SOF3 DNG) -> calibrated Nikon ZeroFC baseline
    - Pure-JS cross-browser raster decoders:
      TIFF (.tif, .tiff: 8/16-bit int & 32-bit float, Uncompressed / PackBits / LZW / Deflate + Predictor=2),
      TGA (.tga: 8/24/32-bit uncompressed & RLE), Netpbm (.ppm, .pgm, .pnm: 8/16-bit P2/P3/P5/P6),
@@ -2361,7 +2468,7 @@ return {serialize, deserialize};
 (function(root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.LutPhoto = factory();
-})(globalThis, function() {
+})(globalThis, function lutPhotoFactory() {
   'use strict';
 
   const MAX_PHOTO_BYTES = 256 * 1024 * 1024;
@@ -3114,6 +3221,1329 @@ return {serialize, deserialize};
     return samples;
   }
 
+  // =========================================================================
+  // Phase 1 & Phase 2: Metadata Inspection, Nikon De-filtering & Bayer Decode
+  // =========================================================================
+
+  const nowMs = () => (typeof performance === 'object' && typeof performance.now === 'function' ? performance.now() : Date.now());
+  const CURVE_X17 = [0, 16, 32, 48, 64, 80, 96, 112, 128, 143, 159, 175, 191, 207, 223, 239, 255].map(v => v / 255);
+  const ADL_NAMES = {
+    0: 'Off', 1: 'Low', 3: 'Normal', 5: 'High',
+    7: 'Extra High', 8: 'Extra High 1', 9: 'Extra High 2', 10: 'Extra High 3', 11: 'Extra High 4',
+    65535: 'Auto',
+  };
+  const NEF_COMP_NAMES = {
+    1: 'Lossy (type 1)', 2: 'Uncompressed', 3: 'Lossless', 4: 'Lossy (type 2)',
+    5: 'Striped packed 12-bit', 6: 'Uncompressed (reduced)', 7: 'Unpacked 12-bit', 8: 'Small',
+    9: 'Packed 12-bit', 10: 'Packed 14-bit', 13: 'High Efficiency', 14: 'High Efficiency*',
+  };
+  // Anchored BT.601 Y'CbCr inverse curve (Standard / Auto -> ZeroFC) calibrated against NX Studio libPCEngine
+  const STD_INV_Y17 = [
+    0.0, 0.14575, 0.19763, 0.25276, 0.30235, 0.33580, 0.38270, 0.43169,
+    0.47411, 0.52136, 0.57115, 0.62230, 0.67980, 0.73754, 0.82582, 0.91021, 1.0,
+  ];
+  const STD_INV_Y256 = (() => {
+    const t = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      const u = (i / 255) * 16;
+      const k = Math.min(15, u | 0), f = u - k;
+      t[i] = STD_INV_Y17[k] * (1 - f) + STD_INV_Y17[k + 1] * f;
+    }
+    return t;
+  })();
+
+  // Row-normalized CameraRGB -> linear sRGB 3x3 matrices for Nikon Z-series bodies (D65)
+  // Z8/Z9 empirically calibrated directly against NX Studio libPCEngine ZeroFC; other Z bodies from Adobe DNG ColorMatrix2.
+  const NIKON_Z_MATRICES = {
+    Z8:    [1.2562, -0.2480, -0.0083, -0.1192, 1.2663, -0.1471, -0.0166, -0.2198, 1.2364],
+    Z9:    [1.2562, -0.2480, -0.0083, -0.1192, 1.2663, -0.1471, -0.0166, -0.2198, 1.2364],
+    Z7:    [1.3292, -0.1967, -0.1325, -0.1160, 1.3732, -0.2572,  0.0157, -0.4036, 1.3879],
+    Z7II:  [1.3292, -0.1967, -0.1325, -0.1160, 1.3732, -0.2572,  0.0157, -0.4036, 1.3879],
+    Z6:    [1.6593, -0.5270, -0.1323, -0.1521, 1.4455, -0.2934,  0.0448, -0.4941, 1.4494],
+    Z6II:  [1.6593, -0.5270, -0.1323, -0.1521, 1.4455, -0.2934,  0.0448, -0.4941, 1.4494],
+    Z6III: [1.6593, -0.5270, -0.1323, -0.1521, 1.4455, -0.2934,  0.0448, -0.4941, 1.4494],
+    ZF:    [1.6593, -0.5270, -0.1323, -0.1521, 1.4455, -0.2934,  0.0448, -0.4941, 1.4494],
+    Z5II:  [1.6593, -0.5270, -0.1323, -0.1521, 1.4455, -0.2934,  0.0448, -0.4941, 1.4494],
+    Z5:    [1.6593, -0.5270, -0.1323, -0.1521, 1.4455, -0.2934,  0.0448, -0.4941, 1.4494],
+    Z50:   [1.4081, -0.2661, -0.1420, -0.1354, 1.4404, -0.3050,  0.0245, -0.4287, 1.4041],
+    Z50II: [1.4081, -0.2661, -0.1420, -0.1354, 1.4404, -0.3050,  0.0245, -0.4287, 1.4041],
+    ZFC:   [1.4081, -0.2661, -0.1420, -0.1354, 1.4404, -0.3050,  0.0245, -0.4287, 1.4041],
+    Z30:   [1.4081, -0.2661, -0.1420, -0.1354, 1.4404, -0.3050,  0.0245, -0.4287, 1.4041],
+  };
+  const GENERIC_CAM_MATRIX = [1.3500, -0.2600, -0.0900, -0.1250, 1.3600, -0.2350, 0.0100, -0.3200, 1.3100];
+  // Combined Bradford D50->D65 * XYZ_D65->sRGB_lin
+  const XYZ50_TO_SRGB = [
+    3.1338561, -1.6168667, -0.4906146,
+   -0.9787684,  1.9161415,  0.0334540,
+    0.0719453, -0.2289914,  1.4052427,
+  ];
+  const D50_WHITE = [0.96422, 1.0, 0.82521];
+
+  function decodeLatin1(bytes, start, end) {
+    const s = Math.max(0, start), e = Math.min(bytes.length, end);
+    let out = '';
+    for (let i = s; i < e; i++) {
+      const c = bytes[i];
+      if (c === 0) break;
+      out += String.fromCharCode(c);
+    }
+    return out.trim();
+  }
+
+  function decodeUtf8(bytes) {
+    if (typeof TextDecoder === 'function') return new TextDecoder('utf-8', {fatal: false}).decode(bytes);
+    let s = '';
+    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return s;
+  }
+
+  function naturalSpline1D(xs, ys) {
+    const n = xs.length;
+    if (n < 2) return () => ys[0] || 0;
+    const h = new Float64Array(n - 1), a = new Float64Array(n);
+    for (let i = 0; i < n - 1; i++) h[i] = Math.max(1e-6, xs[i + 1] - xs[i]);
+    for (let i = 1; i < n - 1; i++) a[i] = 3 * ((ys[i + 1] - ys[i]) / h[i] - (ys[i] - ys[i - 1]) / h[i - 1]);
+    const l = new Float64Array(n), mu = new Float64Array(n), z = new Float64Array(n);
+    l[0] = 1;
+    for (let i = 1; i < n - 1; i++) {
+      l[i] = 2 * (xs[i + 1] - xs[i - 1]) - h[i - 1] * mu[i - 1];
+      mu[i] = h[i] / l[i];
+      z[i] = (a[i] - h[i - 1] * z[i - 1]) / l[i];
+    }
+    const c = new Float64Array(n), b = new Float64Array(n - 1), d = new Float64Array(n - 1);
+    for (let j = n - 2; j >= 0; j--) {
+      c[j] = z[j] - mu[j] * c[j + 1];
+      b[j] = (ys[j + 1] - ys[j]) / h[j] - h[j] * (c[j + 1] + 2 * c[j]) / 3;
+      d[j] = (c[j + 1] - c[j]) / (3 * h[j]);
+    }
+    return x => {
+      if (x <= xs[0]) return ys[0];
+      if (x >= xs[n - 1]) return ys[n - 1];
+      let lo = 0, hi = n - 2;
+      while (lo < hi) { const m = (lo + hi + 1) >> 1; if (xs[m] <= x) lo = m; else hi = m - 1; }
+      const t = x - xs[lo];
+      return ys[lo] + b[lo] * t + c[lo] * t * t + d[lo] * t * t * t;
+    };
+  }
+
+  function invert3x3(m) {
+    const a00 = m[0], a01 = m[1], a02 = m[2];
+    const a10 = m[3], a11 = m[4], a12 = m[5];
+    const a20 = m[6], a21 = m[7], a22 = m[8];
+    const c00 = a11 * a22 - a12 * a21, c01 = a02 * a21 - a01 * a22, c02 = a01 * a12 - a02 * a11;
+    const c10 = a12 * a20 - a10 * a22, c11 = a00 * a22 - a02 * a20, c12 = a02 * a10 - a00 * a12;
+    const c20 = a10 * a21 - a11 * a20, c21 = a01 * a20 - a00 * a21, c22 = a00 * a11 - a01 * a10;
+    const det = a00 * c00 + a01 * c10 + a02 * c20;
+    if (!Number.isFinite(det) || Math.abs(det) < 1e-9) return null;
+    const inv = 1 / det;
+    return [c00 * inv, c01 * inv, c02 * inv, c10 * inv, c11 * inv, c12 * inv, c20 * inv, c21 * inv, c22 * inv];
+  }
+
+  function mul3x3(a, b) {
+    const out = new Array(9);
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        out[r * 3 + c] = a[r * 3] * b[c] + a[r * 3 + 1] * b[3 + c] + a[r * 3 + 2] * b[6 + c];
+      }
+    }
+    return out;
+  }
+
+  function dngColorMatrixToCam2Srgb(cm) {
+    if (!cm || cm.length < 9) return null;
+    const invCm = invert3x3(cm);
+    if (!invCm) return null;
+    const cw0 = cm[0] * D50_WHITE[0] + cm[1] * D50_WHITE[1] + cm[2] * D50_WHITE[2];
+    const cw1 = cm[3] * D50_WHITE[0] + cm[4] * D50_WHITE[1] + cm[5] * D50_WHITE[2];
+    const cw2 = cm[6] * D50_WHITE[0] + cm[7] * D50_WHITE[1] + cm[8] * D50_WHITE[2];
+    if (cw0 <= 1e-6 || cw1 <= 1e-6 || cw2 <= 1e-6) return null;
+    const base = mul3x3(XYZ50_TO_SRGB, invCm);
+    const out = [
+      base[0] * cw0, base[1] * cw1, base[2] * cw2,
+      base[3] * cw0, base[4] * cw1, base[5] * cw2,
+      base[6] * cw0, base[7] * cw1, base[8] * cw2,
+    ];
+    for (let r = 0; r < 3; r++) {
+      const s = out[r * 3] + out[r * 3 + 1] + out[r * 3 + 2];
+      if (!Number.isFinite(s) || Math.abs(s) < 1e-6) return null;
+      out[r * 3] /= s; out[r * 3 + 1] /= s; out[r * 3 + 2] /= s;
+    }
+    return out;
+  }
+
+  function lookupNikonMatrix(model) {
+    const s = String(model || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (/Z50(?:II|2)/.test(s)) return {matrix: NIKON_Z_MATRICES.Z50II, source: 'nikon-z50ii'};
+    if (/Z5(?:II|2)/.test(s)) return {matrix: NIKON_Z_MATRICES.Z5II, source: 'nikon-z5ii'};
+    if (/Z6(?:III|3)/.test(s)) return {matrix: NIKON_Z_MATRICES.Z6III, source: 'nikon-z6iii'};
+    if (/Z6(?:II|2)/.test(s)) return {matrix: NIKON_Z_MATRICES.Z6II, source: 'nikon-z6ii'};
+    if (/Z7(?:II|2)/.test(s)) return {matrix: NIKON_Z_MATRICES.Z7II, source: 'nikon-z7ii'};
+    if (/ZFC/.test(s)) return {matrix: NIKON_Z_MATRICES.ZFC, source: 'nikon-zfc'};
+    if (/Z50/.test(s)) return {matrix: NIKON_Z_MATRICES.Z50, source: 'nikon-z50'};
+    if (/Z30/.test(s)) return {matrix: NIKON_Z_MATRICES.Z30, source: 'nikon-z30'};
+    if (/Z9/.test(s)) return {matrix: NIKON_Z_MATRICES.Z9, source: 'nikon-z9'};
+    if (/Z8/.test(s)) return {matrix: NIKON_Z_MATRICES.Z8, source: 'nikon-z8'};
+    if (/Z7/.test(s)) return {matrix: NIKON_Z_MATRICES.Z7, source: 'nikon-z7'};
+    if (/Z6/.test(s)) return {matrix: NIKON_Z_MATRICES.Z6, source: 'nikon-z6'};
+    if (/Z5/.test(s)) return {matrix: NIKON_Z_MATRICES.Z5, source: 'nikon-z5'};
+    if (/ZF/.test(s)) return {matrix: NIKON_Z_MATRICES.ZF, source: 'nikon-zf'};
+    return {matrix: GENERIC_CAM_MATRIX, source: 'generic-fallback'};
+  }
+
+  function parseXmpCrdParams(xmpStr, contrastCurveBytes) {
+    if (!xmpStr) return null;
+    const hasCrd = /crd:(?:CameraProfile|Saturation|HueAdjustmentRed|SplitToningBalance|ColorGradeBlending)/i.test(xmpStr);
+    if (!hasCrd) return null;
+    const getStr = tag => {
+      const m1 = xmpStr.match(new RegExp('<crd:' + tag + '>([^<]*)</crd:' + tag + '>', 'i'));
+      if (m1) return m1[1].trim();
+      const m2 = xmpStr.match(new RegExp('\\bcrd:' + tag + '="([^"]*)"', 'i'));
+      return m2 ? m2[1].trim() : '';
+    };
+    const getNum = (tag, def = 0) => {
+      const s = getStr(tag);
+      if (!s) return def;
+      const n = Number(s);
+      return Number.isFinite(n) ? n : def;
+    };
+    const clampRange = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+    const cols = ['Red', 'Orange', 'Yellow', 'Green', 'Aqua', 'Blue', 'Purple', 'Magenta'];
+    const mixer = cols.map(c => [
+      clampRange(getNum('HueAdjustment' + c, 0), -100, 100),
+      clampRange(getNum('SaturationAdjustment' + c, 0), -100, 100),
+      clampRange(getNum('LuminanceAdjustment' + c, 0), -100, 100),
+    ]);
+    const polar = (h, s, l) => {
+      const rad = h * Math.PI / 180, chr = clampRange(s, 0, 100);
+      return [chr * Math.cos(rad), chr * Math.sin(rad), clampRange(l, -100, 100)];
+    };
+    const grading = [
+      polar(getNum('SplitToningShadowHue', 0), getNum('SplitToningShadowSaturation', 0), getNum('ColorGradeShadowLum', 0)),
+      polar(getNum('ColorGradeMidtoneHue', 0), getNum('ColorGradeMidtoneSat', 0), getNum('ColorGradeMidtoneLum', 0)),
+      polar(getNum('SplitToningHighlightHue', 0), getNum('SplitToningHighlightSaturation', 0), getNum('ColorGradeHighlightLum', 0)),
+    ];
+    let curve = CURVE_X17.slice();
+    if (contrastCurveBytes && contrastCurveBytes.length >= 13) {
+      let usedTable = false;
+      // Nikon 0x008c (578 B) stores the exact precomputed 257-entry LE uint16 curve LUT (0..32767) at bytes 64..577,
+      // which already incorporates inBlack/inWhite/outBlack/outWhite/gamma (bytes 2..7) and Nikon's exact spline.
+      if (contrastCurveBytes.length >= 578) {
+        const cdv = new DataView(contrastCurveBytes.buffer, contrastCurveBytes.byteOffset, contrastCurveBytes.byteLength);
+        let maxV = 0, valid = true;
+        const tbl = new Uint16Array(257);
+        for (let i = 0; i < 257; i++) {
+          const v = cdv.getUint16(64 + i * 2, true);
+          if (v > 32767) { valid = false; break; }
+          if (v > maxV) maxV = v;
+          tbl[i] = v;
+        }
+        if (valid && maxV > 0) {
+          curve = CURVE_X17.map(x => {
+            const u = x * 256, lo = Math.min(255, u | 0), f = u - lo;
+            return clampRange((tbl[lo] * (1 - f) + tbl[lo + 1] * f) / 32767, 0, 1);
+          });
+          usedTable = true;
+        }
+      }
+      if (!usedTable) {
+        const nPts = contrastCurveBytes[8];
+        if (nPts >= 2 && nPts <= 20 && 9 + nPts * 2 <= contrastCurveBytes.length) {
+          const xs = [], ys = [];
+          for (let i = 0; i < nPts; i++) {
+            xs.push(contrastCurveBytes[9 + i * 2] / 255);
+            ys.push(contrastCurveBytes[10 + i * 2] / 255);
+          }
+          const canonical = nPts === 17 && xs.every((x, i) => Math.abs(x - CURVE_X17[i]) <= 1.5 / 255);
+          if (canonical) {
+            curve = ys;
+          } else {
+            const sp = naturalSpline1D(xs, ys);
+            curve = CURVE_X17.map(x => clampRange(sp(x), 0, 1));
+          }
+          const outB = contrastCurveBytes[4] / 255;
+          const outW = contrastCurveBytes[5] > 0 ? contrastCurveBytes[5] / 255 : 1;
+          if (outB > 0 || outW < 1) {
+            curve = curve.map(v => clampRange(outB + v * (outW - outB), 0, 1));
+          }
+        }
+      }
+    }
+    return {
+      curve,
+      saturation: clampRange(getNum('Saturation', 0), -100, 100),
+      mixer,
+      grading,
+      blending: clampRange(getNum('ColorGradeBlending', 50), 0, 100),
+      balance: clampRange(getNum('SplitToningBalance', 0), -100, 100),
+      _cameraProfile: getStr('CameraProfile'),
+    };
+  }
+
+  function isEmbeddedParamsIdentity(p) {
+    if (!p) return false;
+    if (Math.abs(p.saturation || 0) >= 0.5) return false;
+    for (let i = 0; i < 8; i++) {
+      const m = p.mixer[i];
+      if (Math.abs(m[0]) >= 0.5 || Math.abs(m[1]) >= 0.5 || Math.abs(m[2]) >= 0.5) return false;
+    }
+    for (let z = 0; z < 3; z++) {
+      const g = p.grading[z];
+      if (Math.hypot(g[0], g[1]) >= 0.5 || Math.abs(g[2] || 0) >= 0.5) return false;
+    }
+    for (let i = 0; i < p.curve.length; i++) {
+      if (Math.abs(p.curve[i] - CURVE_X17[i]) > 1.05 / 255) return false;
+    }
+    return true;
+  }
+
+  // Deep metadata & RAW IFD parser supporting TIFF/NEF/DNG and JPEG APP1 (Exif + XMP)
+  function parseRawStructure(bytes) {
+    const res = {
+      format: 'other', make: '', model: '', orientation: 1,
+      isJpeg: false, isDng: false, hasNikonMakerNote: false,
+      xmpStr: '', nefCompCode: 0, adlCode: null, isTicoRaw: false,
+      pcRaw: null, contrastCurve: null, linTable: null, mnLe: true,
+      wbRB: null, blackLevelMaker: null, cropAreaMaker: null,
+      rawIfd: null, tiffLe: true,
+      dng: {
+        colorMatrix1: null, colorMatrix2: null, asShotNeutral: null,
+        blackLevel: null, blackLevelRepeatDim: null, whiteLevel: null,
+        linearizationTable: null, defaultCropOrigin: null, defaultCropSize: null,
+        activeArea: null,
+      },
+    };
+    if (!bytes || bytes.length < 12) return res;
+
+    // Detect container type
+    if (bytes[0] === 0xff && bytes[1] === 0xd8) {
+      res.format = 'jpeg';
+      res.isJpeg = true;
+    } else if (bytes.length > 16 && bytes[0] === 0x46 && bytes[1] === 0x55 && bytes[2] === 0x4a && bytes[3] === 0x49 &&
+               bytes[4] === 0x46 && bytes[5] === 0x49 && bytes[6] === 0x4c && bytes[7] === 0x4d) {
+      res.format = 'raf';
+      res.make = 'FUJIFILM';
+      res.model = decodeLatin1(bytes, 28, 60);
+      return res;
+    } else if (bytes.length > 16 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70 &&
+               bytes[8] === 0x63 && bytes[9] === 0x72 && bytes[10] === 0x78) {
+      res.format = 'cr3';
+      res.make = 'Canon';
+      return res;
+    } else if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+      res.format = 'png';
+      return res;
+    } else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+               bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+      res.format = 'webp';
+      return res;
+    }
+
+    const TYPE_SIZE = {1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8};
+
+    function parseTiffBlock(buf, baseOffset, isOuterFile) {
+      if (buf.length < 16) return false;
+      const le = buf[0] === 0x49 && buf[1] === 0x49;
+      if (!le && !(buf[0] === 0x4d && buf[1] === 0x4d)) return false;
+      const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+      const magic = dv.getUint16(2, le);
+      if (magic !== 42 && magic !== 0x4f52 && magic !== 0x5352 && magic !== 0x0055) return false;
+      res.tiffLe = le;
+      if (isOuterFile) res.format = 'tiff';
+
+      const readVal = (blockBuf, blockDv, bLe, type, count, valOff, keepBytes) => {
+        const sz = TYPE_SIZE[type] || 1, tot = sz * count;
+        if (tot <= 0 || tot > 16 * 1024 * 1024) return null;
+        const off = tot <= 4 ? valOff : blockDv.getUint32(valOff, bLe);
+        if (off < 0 || off + tot > blockBuf.length) return null;
+        if (keepBytes) return blockBuf.subarray(off, off + tot);
+        if (type === 2) return decodeLatin1(blockBuf, off, off + Math.min(count, 512));
+        if ((type === 1 || type === 7) && count > 32) return blockBuf.subarray(off, off + count);
+        const lim = Math.min(count, 65536);
+        const arr = new Array(lim);
+        for (let i = 0; i < lim; i++) {
+          const p = off + i * sz;
+          if (type === 1 || type === 7) arr[i] = blockBuf[p];
+          else if (type === 3) arr[i] = blockDv.getUint16(p, bLe);
+          else if (type === 4) arr[i] = blockDv.getUint32(p, bLe);
+          else if (type === 5) { const d = blockDv.getUint32(p + 4, bLe); arr[i] = d ? blockDv.getUint32(p, bLe) / d : 0; }
+          else if (type === 6) arr[i] = blockDv.getInt8(p);
+          else if (type === 8) arr[i] = blockDv.getInt16(p, bLe);
+          else if (type === 9) arr[i] = blockDv.getInt32(p, bLe);
+          else if (type === 10) { const d = blockDv.getInt32(p + 4, bLe); arr[i] = d ? blockDv.getInt32(p, bLe) / d : 0; }
+          else if (type === 11) arr[i] = blockDv.getFloat32(p, bLe);
+          else if (type === 12) arr[i] = blockDv.getFloat64(p, bLe);
+          else arr[i] = blockBuf[p];
+        }
+        return arr;
+      };
+
+      const seen = new Set();
+      function parseNikonMaker(mnBytes) {
+        if (!mnBytes || mnBytes.length < 18) return;
+        let mnBuf = mnBytes, mnOff = 0, mnLe = le;
+        const isType3 = mnBytes[0] === 0x4e && mnBytes[1] === 0x69 && mnBytes[2] === 0x6b &&
+                        mnBytes[3] === 0x6f && mnBytes[4] === 0x6e && mnBytes[5] === 0x00;
+        if (isType3) {
+          res.hasNikonMakerNote = true;
+          mnBuf = mnBytes.subarray(10);
+          if (mnBuf.length < 10) return;
+          const mDv = new DataView(mnBuf.buffer, mnBuf.byteOffset, mnBuf.byteLength);
+          mnLe = mnBuf[0] === 0x49 && mnBuf[1] === 0x49;
+          if (!mnLe && !(mnBuf[0] === 0x4d && mnBuf[1] === 0x4d)) return;
+          if (mDv.getUint16(2, mnLe) !== 42) return;
+          mnOff = mDv.getUint32(4, mnLe);
+        } else if (/nikon/i.test(res.make + ' ' + res.model)) {
+          // Legacy unheaded Nikon MakerNote (offsets relative to outer TIFF block)
+          res.hasNikonMakerNote = true;
+          mnBuf = buf;
+          mnOff = mnBytes.byteOffset - buf.byteOffset;
+          mnLe = le;
+        } else {
+          return;
+        }
+        res.mnLe = mnLe;
+        const mDv = new DataView(mnBuf.buffer, mnBuf.byteOffset, mnBuf.byteLength);
+        if (mnOff < 0 || mnOff + 2 > mnBuf.length) return;
+        const n = mDv.getUint16(mnOff, mnLe);
+        if (n === 0 || n > 512 || mnOff + 2 + n * 12 > mnBuf.length) return;
+        for (let i = 0; i < n; i++) {
+          const e = mnOff + 2 + i * 12;
+          const tag = mDv.getUint16(e, mnLe), type = mDv.getUint16(e + 2, mnLe), count = mDv.getUint32(e + 4, mnLe);
+          const rawByteTag = tag === 0x0023 || tag === 0x00bd || tag === 0x0051 || tag === 0x008c || tag === 0x0096;
+          if (count > 262144) continue;
+          const v = readVal(mnBuf, mDv, mnLe, type, count, e + 8, rawByteTag);
+          if (v === null) continue;
+          if (tag === 0x000c && Array.isArray(v) && v.length >= 2) res.wbRB = v;
+          else if (tag === 0x0022 && Array.isArray(v) && v.length >= 1) res.adlCode = v[0];
+          else if ((tag === 0x0023 || tag === 0x00bd) && v instanceof Uint8Array && v.length >= 44) {
+            if (!res.pcRaw || tag === 0x00bd) res.pcRaw = v;
+          } else if (tag === 0x003d && Array.isArray(v) && v.length >= 4) res.blackLevelMaker = v;
+          else if (tag === 0x0045 && Array.isArray(v) && v.length >= 4) res.cropAreaMaker = v;
+          else if (tag === 0x0051 && v instanceof Uint8Array && v.length >= 12) {
+            // EXPEED 7 FirmwareVersion51 block stores NEFCompression uint16 at offset 0x0a
+            const dv51 = new DataView(v.buffer, v.byteOffset, v.byteLength);
+            const c51 = dv51.getUint16(10, mnLe);
+            if (!res.nefCompCode && c51 > 0 && c51 <= 20) res.nefCompCode = c51;
+          } else if (tag === 0x008c && v instanceof Uint8Array && v.length >= 13) res.contrastCurve = v;
+          else if (tag === 0x0093 && Array.isArray(v) && v.length >= 1) res.nefCompCode = v[0];
+          else if (tag === 0x0096 && v instanceof Uint8Array && v.length >= 10) res.linTable = v;
+        }
+      }
+
+      function walk(ifdOff, isRoot) {
+        let cur = ifdOff;
+        while (cur >= 8 && cur + 2 <= buf.length && !seen.has(cur) && seen.size < 128) {
+          seen.add(cur);
+          const n = dv.getUint16(cur, le);
+          if (n === 0 || n > 512 || cur + 2 + n * 12 > buf.length) break;
+          const tags = new Map(), subs = [];
+          for (let i = 0; i < n; i++) {
+            const e = cur + 2 + i * 12;
+            const tag = dv.getUint16(e, le), type = dv.getUint16(e + 2, le), count = dv.getUint32(e + 4, le);
+            if (count > 262144 && tag !== 0x02bc && tag !== 0x927c) continue;
+            const keepRaw = tag === 0x02bc || tag === 0x927c;
+            const v = readVal(buf, dv, le, type, count, e + 8, keepRaw);
+            if (v === null) continue;
+            tags.set(tag, v);
+            if (tag === 0x014a || tag === 0x8769) {
+              if (Array.isArray(v)) for (const sub of v) if (sub >= 8) subs.push(sub);
+            }
+          }
+          if (isRoot) {
+            if (typeof tags.get(0x010f) === 'string' && !res.make) res.make = tags.get(0x010f);
+            if (typeof tags.get(0x0110) === 'string' && !res.model) res.model = tags.get(0x0110);
+            const ori = tags.get(0x0112)?.[0];
+            if (ori >= 1 && ori <= 8) res.orientation = ori;
+            if (tags.has(0xc612)) { res.isDng = true; if (isOuterFile) res.format = 'dng'; }
+            if (tags.get(0x02bc) instanceof Uint8Array && !res.xmpStr) res.xmpStr = decodeUtf8(tags.get(0x02bc));
+          }
+          if (tags.has(0xc621) && !res.dng.colorMatrix1 && Array.isArray(tags.get(0xc621))) res.dng.colorMatrix1 = tags.get(0xc621);
+          if (tags.has(0xc622) && !res.dng.colorMatrix2 && Array.isArray(tags.get(0xc622))) res.dng.colorMatrix2 = tags.get(0xc622);
+          if (tags.has(0xc628) && !res.dng.asShotNeutral && Array.isArray(tags.get(0xc628))) res.dng.asShotNeutral = tags.get(0xc628);
+          if (tags.get(0x927c) instanceof Uint8Array) parseNikonMaker(tags.get(0x927c));
+
+          // CFA SubIFD / IFD0 (PhotometricInterpretation 0x0106 === 32803)
+          if (isOuterFile && tags.get(0x0106)?.[0] === 32803) {
+            const w = tags.get(0x0100)?.[0] || 0, h = tags.get(0x0101)?.[0] || 0;
+            if (w > 0 && h > 0 && (!res.rawIfd || w * h > res.rawIfd.width * res.rawIfd.height)) {
+              res.rawIfd = {
+                width: w, height: h,
+                bps: tags.get(0x0102)?.[0] || 14,
+                comp: tags.get(0x0103)?.[0] ?? 1,
+                spp: tags.get(0x0115)?.[0] || 1,
+                rps: tags.get(0x0116)?.[0] || h,
+                stripOffsets: tags.get(0x0111) || null,
+                stripCounts: tags.get(0x0117) || null,
+                tileW: tags.get(0x0142)?.[0] || 0,
+                tileH: tags.get(0x0143)?.[0] || 0,
+                tileOffsets: tags.get(0x0144) || null,
+                tileCounts: tags.get(0x0145) || null,
+                cfa: Array.isArray(tags.get(0x828e)) ? tags.get(0x828e) : [0, 1, 1, 2],
+              };
+              if (tags.has(0xc618)) res.dng.linearizationTable = tags.get(0xc618);
+              if (tags.has(0xc619)) res.dng.blackLevelRepeatDim = tags.get(0xc619);
+              if (tags.has(0xc61a)) res.dng.blackLevel = tags.get(0xc61a);
+              if (tags.has(0xc61d)) res.dng.whiteLevel = tags.get(0xc61d);
+              if (tags.has(0xc61f)) res.dng.defaultCropOrigin = tags.get(0xc61f);
+              if (tags.has(0xc620)) res.dng.defaultCropSize = tags.get(0xc620);
+              if (tags.has(0xc68d)) res.dng.activeArea = tags.get(0xc68d);
+            }
+          }
+          for (const sub of subs) walk(sub, false);
+          const nextPos = cur + 2 + n * 12;
+          cur = nextPos + 4 <= buf.length ? dv.getUint32(nextPos, le) : 0;
+          isRoot = false;
+        }
+      }
+
+      walk(dv.getUint32(4, le), true);
+      return true;
+    }
+
+    if (res.isJpeg) {
+      // Scan JPEG APP1 segments (Exif\0\0 and http://ns.adobe.com/xap/1.0/\0) before SOS/EOI
+      const lim = Math.min(bytes.length, 2 * 1024 * 1024);
+      let pos = 2;
+      while (pos + 4 <= lim) {
+        if (bytes[pos] !== 0xff) break;
+        while (pos < lim && bytes[pos] === 0xff) pos++;
+        if (pos >= lim) break;
+        const marker = bytes[pos++];
+        if (marker === 0xda || marker === 0xd9) break;
+        if (marker === 0x00 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8)) continue;
+        if (pos + 2 > lim) break;
+        const segLen = (bytes[pos] << 8) | bytes[pos + 1];
+        if (segLen < 2 || pos + segLen > bytes.length) break;
+        const segStart = pos + 2, segEnd = pos + segLen;
+        if (marker === 0xe1 && segLen > 8) {
+          if (bytes[segStart] === 0x45 && bytes[segStart + 1] === 0x78 && bytes[segStart + 2] === 0x69 &&
+              bytes[segStart + 3] === 0x66 && bytes[segStart + 4] === 0 && bytes[segStart + 5] === 0) {
+            parseTiffBlock(bytes.subarray(segStart + 6, segEnd), segStart + 6, false);
+          } else {
+            const xmpSig = 'http://ns.adobe.com/xap/1.0/';
+            if (segEnd - segStart > xmpSig.length + 1 && decodeLatin1(bytes, segStart, segStart + xmpSig.length + 1) === xmpSig) {
+              const xml = decodeUtf8(bytes.subarray(segStart + xmpSig.length + 1, segEnd));
+              if (!res.xmpStr || /crd:/i.test(xml)) res.xmpStr = xml;
+            }
+          }
+        }
+        pos = segEnd;
+      }
+    } else {
+      parseTiffBlock(bytes, 0, true);
+    }
+
+    // Check SubIFD1 raw strip header for proprietary intoPIX TicoRAW ("CONTACT_INTOPIX")
+    if (res.rawIfd && res.rawIfd.stripOffsets && res.rawIfd.stripOffsets.length > 0) {
+      const so = res.rawIfd.stripOffsets[0];
+      if (so > 0 && so + 24 <= bytes.length) {
+        const hdrStr = decodeLatin1(bytes, so + 6, so + 22);
+        if (hdrStr.startsWith('CONTACT_INTOPIX') || (bytes[so] === 0xff && bytes[so + 1] === 0x10 && bytes[so + 2] === 0xff && bytes[so + 3] === 0x50)) {
+          res.isTicoRaw = true;
+        }
+      }
+    }
+    if (!res.isDng && !res.isJpeg && res.rawIfd && (res.hasNikonMakerNote || /nikon/i.test(res.make + ' ' + res.model))) {
+      res.format = 'nef';
+    }
+    return res;
+  }
+
+  function inspectPhotoMetadata(bytes) {
+    const s = parseRawStructure(bytes);
+    const isNikon = s.hasNikonMakerNote || /nikon/i.test(s.make + ' ' + s.model);
+    const isNikonHE = s.isTicoRaw || s.nefCompCode === 13 || s.nefCompCode === 14;
+
+    let compression = 0, compressionName = '';
+    let isLosslessRaw = false, isUncompressedRaw = false;
+    if (s.rawIfd) {
+      compression = s.rawIfd.comp;
+      if (isNikonHE) {
+        compressionName = s.nefCompCode === 13 ? 'High Efficiency' : 'High Efficiency*';
+      } else if (s.rawIfd.comp === 1) {
+        compressionName = 'Uncompressed';
+        isUncompressedRaw = true;
+      } else if (s.rawIfd.comp === 34713) {
+        const isLL = s.nefCompCode === 3 || (s.linTable && s.linTable.length >= 10 && (s.linTable[0] === 0x46 || s.linTable[0] === 0x49) && s.nefCompCode !== 1 && s.nefCompCode !== 4);
+        compressionName = NEF_COMP_NAMES[s.nefCompCode] || (isLL ? 'Lossless' : 'Nikon NEF Compressed');
+        isLosslessRaw = Boolean(isLL);
+      } else if (s.rawIfd.comp === 7) {
+        compressionName = 'Lossless JPEG';
+        isLosslessRaw = true;
+      } else {
+        compressionName = 'Compression ' + s.rawIfd.comp;
+      }
+    } else if (s.isJpeg) {
+      compression = 'jpeg';
+      compressionName = 'JPEG';
+    } else {
+      compressionName = s.format.toUpperCase();
+    }
+
+    // Parse PictureControlData (0x0023 / 0x00bd): v0310 has 8-byte version header, v0100-v0300 has 4-byte header
+    let pcName = '', pcBase = '', pcVersion = '';
+    if (s.pcRaw && s.pcRaw.length >= 44) {
+      pcVersion = decodeLatin1(s.pcRaw, 0, 4);
+      const v2 = decodeLatin1(s.pcRaw, 4, 8);
+      const hasDoubleVer = /^\d{4}$/.test(v2) && s.pcRaw.length >= 48;
+      const nameOff = hasDoubleVer ? 8 : 4;
+      const baseOff = nameOff + 20;
+      pcName = decodeLatin1(s.pcRaw, nameOff, nameOff + 20);
+      pcBase = decodeLatin1(s.pcRaw, baseOff, baseOff + 20);
+    }
+
+    const parsedCrd = parseXmpCrdParams(s.xmpStr, s.contrastCurve);
+    const crdProfile = parsedCrd ? parsedCrd._cameraProfile : '';
+    const isFlexibleColor = Boolean(
+      (pcBase && /^flexible\s*color$/i.test(pcBase)) ||
+      (crdProfile && /^camera\s+flexible\s+color$/i.test(crdProfile))
+    );
+    let embeddedParams = null;
+    if (parsedCrd && (isFlexibleColor || !pcBase)) {
+      embeddedParams = {
+        curve: parsedCrd.curve,
+        saturation: parsedCrd.saturation,
+        mixer: parsedCrd.mixer,
+        grading: parsedCrd.grading,
+        blending: parsedCrd.blending,
+        balance: parsedCrd.balance,
+      };
+    }
+
+    const isZeroFC = Boolean(
+      isFlexibleColor && (
+        /^zerofc$/i.test(pcName) ||
+        (embeddedParams !== null && isEmbeddedParamsIdentity(embeddedParams))
+      )
+    );
+    const isMonochrome = Boolean(
+      /mono|acros|b&w|b\s*&\s*w|black.*white|\bbw\b/i.test(pcName + ' ' + pcBase) ||
+      (embeddedParams !== null && embeddedParams.saturation <= -85)
+    );
+    const isStandardLike = Boolean(
+      isNikon && !isFlexibleColor && !isMonochrome &&
+      /^(standard|auto|vivid|landscape|portrait)$/i.test(pcBase || pcName || '')
+    );
+
+    const pictureControl = (pcName || pcBase || isFlexibleColor) ? {
+      name: pcName || (isFlexibleColor ? 'Flexible Color' : ''),
+      base: pcBase || (isFlexibleColor ? 'Flexible Color' : ''),
+      version: pcVersion,
+      isZeroFC,
+      isFlexibleColor,
+      isMonochrome,
+      isStandardLike,
+    } : null;
+
+    let curveRange = 1;
+    if (embeddedParams) {
+      let mn = 1, mx = 0;
+      for (const v of embeddedParams.curve) { if (v < mn) mn = v; if (v > mx) mx = v; }
+      curveRange = mx - mn;
+    }
+
+    let canDefilter = false, defilterReason = 'non-nikon';
+    if (!isNikon) {
+      canDefilter = false; defilterReason = 'non-nikon';
+    } else if (isZeroFC) {
+      canDefilter = false; defilterReason = 'already-zero-fc';
+    } else if (isMonochrome) {
+      canDefilter = false; defilterReason = 'monochrome';
+    } else if (embeddedParams) {
+      if (curveRange <= 0.25) { canDefilter = false; defilterReason = 'curve-collapsed'; }
+      else { canDefilter = 'flexible-color'; defilterReason = 'ok'; }
+    } else if (isStandardLike) {
+      canDefilter = 'standard-baseline'; defilterReason = 'ok';
+    } else {
+      canDefilter = false; defilterReason = 'no-recipe';
+    }
+
+    let canDecodeBayer = false, bayerReason = 'not-raw';
+    if (!s.rawIfd) {
+      canDecodeBayer = false; bayerReason = 'not-raw';
+    } else if (isNikonHE) {
+      canDecodeBayer = false; bayerReason = 'nikon-he-proprietary';
+    } else if (s.rawIfd.comp === 34713) {
+      if (isLosslessRaw && s.linTable && s.linTable.length >= 10 && (s.rawIfd.bps === 12 || s.rawIfd.bps === 14)) {
+        canDecodeBayer = true; bayerReason = 'ok';
+      } else {
+        canDecodeBayer = false; bayerReason = 'unsupported-compression';
+      }
+    } else if (s.rawIfd.comp === 1 && (s.rawIfd.bps === 12 || s.rawIfd.bps === 14 || s.rawIfd.bps === 16)) {
+      canDecodeBayer = true; bayerReason = 'ok';
+    } else if (s.rawIfd.comp === 7 && s.isDng) {
+      canDecodeBayer = true; bayerReason = 'ok';
+    } else {
+      canDecodeBayer = false; bayerReason = 'unsupported-compression';
+    }
+
+    const activeDLighting = s.adlCode !== null ? (ADL_NAMES[s.adlCode] || ('ADL ' + s.adlCode)) : null;
+
+    return {
+      format: s.format,
+      make: s.make,
+      model: s.model,
+      orientation: s.orientation,
+      compression,
+      compressionName,
+      isNikon,
+      isNikonHE,
+      isLosslessRaw,
+      isUncompressedRaw,
+      pictureControl,
+      activeDLighting,
+      embeddedParams,
+      canDefilter,
+      canDecodeBayer,
+      defilterReason,
+      bayerReason,
+    };
+  }
+
+  // Build 3D inverse LUT (size^3, default 17^3) of forwardFn([r,g,b]) via damped Levenberg-Marquardt
+  function buildInverseLut3D(forwardFn, size = 17) {
+    const t0 = nowMs();
+    const S = Math.max(2, Math.min(33, size | 0));
+    const data = new Float32Array(S * S * S * 3);
+    const eps = 1 / 255;
+    const clamp01 = v => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+    // Precompute 1D monotonic gray-axis inverse to initialize safely inside the unclipped interior
+    const grayN = 65, grayY = new Float32Array(grayN);
+    for (let i = 0; i < grayN; i++) {
+      const u = i / (grayN - 1), g = forwardFn([u, u, u]);
+      grayY[i] = 0.299 * g[0] + 0.587 * g[1] + 0.114 * g[2];
+    }
+    const invGray = y => {
+      if (y <= grayY[0]) return 0;
+      if (y >= grayY[grayN - 1]) return 1;
+      let lo = 0, hi = grayN - 2;
+      while (lo < hi) { const m = (lo + hi + 1) >> 1; if (grayY[m] <= y) lo = m; else hi = m - 1; }
+      const d = grayY[lo + 1] - grayY[lo];
+      const f = d > 1e-6 ? (y - grayY[lo]) / d : 0;
+      return (lo + f) / (grayN - 1);
+    };
+
+    for (let bi = 0; bi < S; bi++) {
+      const tb = bi / (S - 1);
+      for (let gi = 0; gi < S; gi++) {
+        const tg = gi / (S - 1);
+        for (let ri = 0; ri < S; ri++) {
+          const tr = ri / (S - 1);
+          // Interior initialization: invert gray luma and gently shrink chroma to avoid starting on a clipped wall
+          const yT = 0.299 * tr + 0.587 * tg + 0.114 * tb;
+          const y0 = invGray(yT);
+          let xr = clamp01(y0 + (tr - yT) * 0.72);
+          let xg = clamp01(y0 + (tg - yT) * 0.72);
+          let xb = clamp01(y0 + (tb - yT) * 0.72);
+          let fx = forwardFn([xr, xg, xb]);
+          let e0 = tr - fx[0], e1 = tg - fx[1], e2 = tb - fx[2];
+          let err2 = e0 * e0 + e1 * e1 + e2 * e2;
+          let lam = 1e-3;
+
+          for (let it = 0; it < 12 && err2 > 1e-8; it++) {
+            const xr1 = xr + eps <= 1 ? xr + eps : xr - eps, hr = xr1 - xr;
+            const xg1 = xg + eps <= 1 ? xg + eps : xg - eps, hg = xg1 - xg;
+            const xb1 = xb + eps <= 1 ? xb + eps : xb - eps, hb = xb1 - xb;
+            const f0 = forwardFn([xr1, xg, xb]);
+            const f1 = forwardFn([xr, xg1, xb]);
+            const f2 = forwardFn([xr, xg, xb1]);
+            const j00 = (f0[0] - fx[0]) / hr, j01 = (f1[0] - fx[0]) / hg, j02 = (f2[0] - fx[0]) / hb;
+            const j10 = (f0[1] - fx[1]) / hr, j11 = (f1[1] - fx[1]) / hg, j12 = (f2[1] - fx[1]) / hb;
+            const j20 = (f0[2] - fx[2]) / hr, j21 = (f1[2] - fx[2]) / hg, j22 = (f2[2] - fx[2]) / hb;
+            // Normal equations: (J^T J + lam * I) d = J^T e (always SPD -> guaranteed descent direction)
+            const a00 = j00 * j00 + j10 * j10 + j20 * j20 + lam;
+            const a01 = j00 * j01 + j10 * j11 + j20 * j21;
+            const a02 = j00 * j02 + j10 * j12 + j20 * j22;
+            const a11 = j01 * j01 + j11 * j11 + j21 * j21 + lam;
+            const a12 = j01 * j02 + j11 * j12 + j21 * j22;
+            const a22 = j02 * j02 + j12 * j12 + j22 * j22 + lam;
+            const g0 = j00 * e0 + j10 * e1 + j20 * e2;
+            const g1 = j01 * e0 + j11 * e1 + j21 * e2;
+            const g2 = j02 * e0 + j12 * e1 + j22 * e2;
+            const c00 = a11 * a22 - a12 * a12, c01 = a02 * a12 - a01 * a22, c02 = a01 * a12 - a02 * a11;
+            const c11 = a00 * a22 - a02 * a02, c12 = a01 * a02 - a00 * a12, c22 = a00 * a11 - a01 * a01;
+            const det = a00 * c00 + a01 * c01 + a02 * c02;
+            if (det <= 1e-12) { lam *= 10; continue; }
+            const inv = 1 / det;
+            let d0 = (c00 * g0 + c01 * g1 + c02 * g2) * inv;
+            let d1 = (c01 * g0 + c11 * g1 + c12 * g2) * inv;
+            let d2 = (c02 * g0 + c12 * g1 + c22 * g2) * inv;
+            const maxStep = Math.max(Math.abs(d0), Math.abs(d1), Math.abs(d2));
+            if (maxStep > 0.35) { const sc = 0.35 / maxStep; d0 *= sc; d1 *= sc; d2 *= sc; }
+
+            let accepted = false;
+            for (let alpha = 1.0; alpha >= 0.25; alpha *= 0.5) {
+              const nr = clamp01(xr + d0 * alpha), ng = clamp01(xg + d1 * alpha), nb = clamp01(xb + d2 * alpha);
+              const nfx = forwardFn([nr, ng, nb]);
+              const ne0 = tr - nfx[0], ne1 = tg - nfx[1], ne2 = tb - nfx[2];
+              const nErr2 = ne0 * ne0 + ne1 * ne1 + ne2 * ne2;
+              if (nErr2 < err2) {
+                xr = nr; xg = ng; xb = nb; fx = nfx;
+                e0 = ne0; e1 = ne1; e2 = ne2; err2 = nErr2;
+                lam = Math.max(1e-5, lam * 0.4);
+                accepted = true;
+                break;
+              }
+            }
+            if (!accepted) { lam = Math.min(10, lam * 8); if (lam >= 10) break; }
+          }
+          const idx = ((bi * S + gi) * S + ri) * 3;
+          data[idx] = xr; data[idx + 1] = xg; data[idx + 2] = xb;
+        }
+      }
+    }
+    return {size: S, data, ms: nowMs() - t0};
+  }
+
+  // Apply 3D LUT to RGBA buffer using tetrahedral interpolation (faster & cleaner on neutrals than trilinear)
+  function applyLut3DToRgba(rgba, lut) {
+    const S = lut.size, d = lut.data, scale = (S - 1) / 255;
+    const sR = 3, sG = S * 3, sB = S * S * 3, maxIdx = S - 2;
+    const out = new Uint8ClampedArray(rgba.length);
+    for (let i = 0; i < rgba.length; i += 4) {
+      const rx = rgba[i] * scale, gx = rgba[i + 1] * scale, bx = rgba[i + 2] * scale;
+      const r0 = rx >= S - 1 ? maxIdx : (rx | 0);
+      const g0 = gx >= S - 1 ? maxIdx : (gx | 0);
+      const b0 = bx >= S - 1 ? maxIdx : (bx | 0);
+      const dr = rx - r0, dg = gx - g0, db = bx - b0;
+      const i000 = b0 * sB + g0 * sG + r0 * sR;
+      const i111 = i000 + sR + sG + sB;
+      let iA, iB, w1, w2, w3;
+      if (dr >= dg) {
+        if (dg >= db) { iA = i000 + sR; iB = iA + sG; w1 = dr; w2 = dg; w3 = db; }
+        else if (dr >= db) { iA = i000 + sR; iB = iA + sB; w1 = dr; w2 = db; w3 = dg; }
+        else { iA = i000 + sB; iB = iA + sR; w1 = db; w2 = dr; w3 = dg; }
+      } else {
+        if (db >= dg) { iA = i000 + sB; iB = iA + sG; w1 = db; w2 = dg; w3 = dr; }
+        else if (db >= dr) { iA = i000 + sG; iB = iA + sB; w1 = dg; w2 = db; w3 = dr; }
+        else { iA = i000 + sG; iB = iA + sR; w1 = dg; w2 = dr; w3 = db; }
+      }
+      const w0 = 1 - w1, wA = w1 - w2, wB = w2 - w3;
+      out[i]     = clampByte((w0 * d[i000]     + wA * d[iA]     + wB * d[iB]     + w3 * d[i111])     * 255);
+      out[i + 1] = clampByte((w0 * d[i000 + 1] + wA * d[iA + 1] + wB * d[iB + 1] + w3 * d[i111 + 1]) * 255);
+      out[i + 2] = clampByte((w0 * d[i000 + 2] + wA * d[iA + 2] + wB * d[iB + 2] + w3 * d[i111 + 2]) * 255);
+      out[i + 3] = rgba[i + 3];
+    }
+    return out;
+  }
+
+  // Phase 1 de-filtering: strips baked-in Flexible Color (via core.js inverse LUT) or Standard/Auto baseline
+  function defilterRgba(rgba, width, height, meta, lutNp3Core) {
+    if (!rgba || !meta || !meta.canDefilter) return null;
+    const t0 = nowMs();
+    if (meta.canDefilter === 'flexible-color' && meta.embeddedParams && lutNp3Core && typeof lutNp3Core.makeRenderer === 'function') {
+      const fwd = lutNp3Core.makeRenderer(meta.embeddedParams);
+      const lut = buildInverseLut3D(fwd, 17);
+      const data = applyLut3DToRgba(rgba, lut);
+      return {width, height, data, method: 'inverse-fc', ms: nowMs() - t0};
+    }
+    if (meta.canDefilter === 'standard-baseline') {
+      const pcLabel = ((meta.pictureControl?.base || '') + ' ' + (meta.pictureControl?.name || '')).toLowerCase();
+      const chrScale = /\bvivid\b/.test(pcLabel) ? 0.72 : 0.799;
+      const out = new Uint8ClampedArray(rgba.length);
+      for (let i = 0; i < rgba.length; i += 4) {
+        const r = rgba[i] / 255, g = rgba[i + 1] / 255, b = rgba[i + 2] / 255;
+        const y = 0.299 * r + 0.587 * g + 0.114 * b;
+        const yi = y <= 0 ? 0 : y >= 1 ? 255 : Math.round(y * 255);
+        const y2 = STD_INV_Y256[yi];
+        const cb = ((b - y) / 1.772) * chrScale;
+        const cr = ((r - y) / 1.402) * chrScale;
+        const r2 = y2 + 1.402 * cr;
+        const b2 = y2 + 1.772 * cb;
+        const g2 = (y2 - 0.299 * r2 - 0.114 * b2) / 0.587;
+        out[i] = clampByte(r2 * 255);
+        out[i + 1] = clampByte(g2 * 255);
+        out[i + 2] = clampByte(b2 * 255);
+        out[i + 3] = rgba[i + 3];
+      }
+      return {width, height, data: out, method: 'inverse-standard', ms: nowMs() - t0};
+    }
+    return null;
+  }
+
+  // =========================================================================
+  // Phase 2: Pure-JS Bayer RAW Decoder (Nikon 12/14-bit Lossless & Uncomp NEF,
+  //          Uncompressed & Lossless-JPEG SOF3 Adobe DNG) -> Calibrated ZeroFC
+  // =========================================================================
+
+  function buildFixedHuff8(counts, syms) {
+    const tblLen = new Uint8Array(256), tblSym = new Uint8Array(256);
+    let code = 0, si = 0;
+    for (let len = 1; len <= 8; len++) {
+      for (let k = 0; k < counts[len - 1]; k++) {
+        const sym = syms[si++], shift = 8 - len;
+        const start = code << shift, end = (code + 1) << shift;
+        for (let i = start; i < end; i++) { tblLen[i] = len; tblSym[i] = sym; }
+        code++;
+      }
+      code <<= 1;
+    }
+    return {tblLen, tblSym};
+  }
+  const NIKON_HUFF_12 = buildFixedHuff8([0, 1, 4, 2, 3, 1, 2, 0], [5, 4, 6, 3, 7, 2, 8, 1, 9, 0, 10, 11, 12]);
+  const NIKON_HUFF_14 = buildFixedHuff8([0, 1, 4, 2, 2, 3, 1, 2], [7, 6, 8, 5, 9, 4, 10, 3, 11, 12, 2, 0, 1, 13, 14]);
+
+  // ITU-T T.81 Annex H Lossless JPEG (SOF3) decoder for Adobe DNG tiles & strips
+  function decodeLosslessJpegBlock(src) {
+    let pos = 0;
+    const len = src.length;
+    if (len < 16 || src[0] !== 0xff || src[1] !== 0xd8) return null;
+    pos = 2;
+    const huffTables = [null, null, null, null];
+    let P = 14, Y = 0, X = 0, Nf = 1, dri = 0;
+    let compSel = [], ss = 1, pt = 0, sosEnd = -1;
+
+    function buildDhtTable(counts, vals) {
+      const fastBits = 10, fastSize = 1 << fastBits;
+      const fastLen = new Uint8Array(fastSize), fastSym = new Uint8Array(fastSize);
+      const maxCode = new Int32Array(17), valOffset = new Int32Array(17);
+      let code = 0, si = 0;
+      for (let l = 1; l <= 16; l++) {
+        valOffset[l] = si - code;
+        const cnt = counts[l - 1];
+        for (let k = 0; k < cnt; k++) {
+          const sym = vals[si++];
+          if (l <= fastBits) {
+            const sh = fastBits - l, st = code << sh, en = (code + 1) << sh;
+            for (let j = st; j < en; j++) { fastLen[j] = l; fastSym[j] = sym; }
+          }
+          code++;
+        }
+        maxCode[l] = cnt > 0 ? code - 1 : -1;
+        code <<= 1;
+      }
+      return {fastBits, fastLen, fastSym, maxCode, valOffset, vals};
+    }
+
+    while (pos + 2 <= len) {
+      if (src[pos] !== 0xff) { pos++; continue; }
+      while (pos < len && src[pos] === 0xff) pos++;
+      if (pos >= len) break;
+      const mk = src[pos++];
+      if (mk === 0xd9) break;
+      if (mk === 0x00 || mk === 0x01 || (mk >= 0xd0 && mk <= 0xd8)) continue;
+      if (pos + 2 > len) break;
+      const segLen = (src[pos] << 8) | src[pos + 1];
+      if (segLen < 2 || pos + segLen > len) break;
+      const segStart = pos + 2, segEnd = pos + segLen;
+      if (mk === 0xc4) {
+        let p = segStart;
+        while (p + 17 <= segEnd) {
+          const id = src[p++] & 0x0f;
+          const counts = src.subarray(p, p + 16); p += 16;
+          let sum = 0; for (let i = 0; i < 16; i++) sum += counts[i];
+          if (p + sum > segEnd) break;
+          huffTables[id & 3] = buildDhtTable(counts, src.subarray(p, p + sum));
+          p += sum;
+        }
+      } else if (mk === 0xc3) {
+        P = src[segStart];
+        Y = (src[segStart + 1] << 8) | src[segStart + 2];
+        X = (src[segStart + 3] << 8) | src[segStart + 4];
+        Nf = src[segStart + 5];
+      } else if (mk === 0xdd) {
+        dri = (src[segStart] << 8) | src[segStart + 1];
+      } else if (mk === 0xda) {
+        const ns = src[segStart];
+        compSel = [];
+        for (let i = 0; i < ns; i++) compSel.push((src[segStart + 2 + i * 2] >> 4) & 3);
+        ss = src[segStart + 1 + ns * 2];
+        pt = src[segStart + 3 + ns * 2] & 0x0f;
+        sosEnd = segEnd;
+        break;
+      }
+      pos = segEnd;
+    }
+    if (sosEnd < 0 || !X || !Y || !Nf || !compSel.length) return null;
+
+    // Bitstream reader with JPEG 0xFF 0x00 byte-unstuffing
+    let bp = sosEnd, bb = 0, bc = 0;
+    const fill = () => {
+      while (bc <= 23 && bp < len) {
+        let b = src[bp++];
+        if (b === 0xff) {
+          if (bp < len) {
+            const nx = src[bp];
+            if (nx === 0x00) { bp++; }
+            else if (nx >= 0xd0 && nx <= 0xd7) { bp++; continue; }
+            else { bp--; b = 0; }
+          }
+        }
+        bb = (bb << 8) | b;
+        bc += 8;
+      }
+    };
+    const decodeSym = tbl => {
+      if (bc < 16) fill();
+      const peek = (bb >>> (bc - tbl.fastBits)) & ((1 << tbl.fastBits) - 1);
+      const fl = tbl.fastLen[peek];
+      if (fl > 0) { bc -= fl; return tbl.fastSym[peek]; }
+      let code = 0;
+      for (let l = 1; l <= 16; l++) {
+        if (bc < 1) fill();
+        code = (code << 1) | ((bb >>> (--bc)) & 1);
+        if (tbl.maxCode[l] >= 0 && code <= tbl.maxCode[l]) {
+          return tbl.vals[code + tbl.valOffset[l]];
+        }
+      }
+      return 0;
+    };
+    const readDiff = ssss => {
+      if (ssss === 0) return 0;
+      if (ssss === 16) return 32768;
+      if (bc < ssss) fill();
+      let v = (bb >>> (bc - ssss)) & ((1 << ssss) - 1);
+      bc -= ssss;
+      if ((v & (1 << (ssss - 1))) === 0) v -= (1 << ssss) - 1;
+      return v;
+    };
+
+    const rowW = X * Nf;
+    const out = new Uint16Array(rowW * Y);
+    const initPred = 1 << (P - pt - 1);
+    let mcuCnt = 0;
+    for (let y = 0; y < Y; y++) {
+      const rOff = y * rowW, pOff = (y - 1) * rowW;
+      for (let x = 0; x < X; x++) {
+        const atRestart = dri > 0 && mcuCnt > 0 && (mcuCnt % dri) === 0;
+        if (atRestart) { bc = 0; bb = 0; }
+        for (let c = 0; c < Nf; c++) {
+          const tbl = huffTables[compSel[c] || 0] || huffTables[0];
+          if (!tbl) return null;
+          const ssss = decodeSym(tbl);
+          const diff = readDiff(ssss);
+          let pred;
+          if ((y === 0 && x === 0) || atRestart) pred = initPred;
+          else if (y === 0) pred = out[rOff + (x - 1) * Nf + c];
+          else if (x === 0) pred = out[pOff + c];
+          else {
+            const ra = out[rOff + (x - 1) * Nf + c];
+            const rb = out[pOff + x * Nf + c];
+            const rc = out[pOff + (x - 1) * Nf + c];
+            if (ss === 1) pred = ra;
+            else if (ss === 2) pred = rb;
+            else if (ss === 3) pred = rc;
+            else if (ss === 4) pred = ra + rb - rc;
+            else if (ss === 5) pred = ra + ((rb - rc) >> 1);
+            else if (ss === 6) pred = rb + ((ra - rc) >> 1);
+            else pred = (ra + rb) >> 1;
+          }
+          out[rOff + x * Nf + c] = (pred + diff) & 0xffff;
+        }
+        mcuCnt++;
+      }
+    }
+    if (pt > 0) for (let i = 0; i < out.length; i++) out[i] = (out[i] << pt) & 0xffff;
+    return {width: rowW, height: Y, data: out};
+  }
+
+  // Decode uncompressed 12/14/16-bit Bayer strip/tile into Uint16Array
+  function unpackBayerBlock(slice, count, bps, le) {
+    const out = new Uint16Array(count);
+    if (bps === 16 || slice.length >= count * 2) {
+      const dv = new DataView(slice.buffer, slice.byteOffset, slice.byteLength);
+      const n = Math.min(count, slice.length >> 1);
+      for (let i = 0; i < n; i++) out[i] = dv.getUint16(i * 2, le);
+      return out;
+    }
+    if (bps === 12) {
+      let si = 0, oi = 0;
+      while (oi + 1 < count && si + 2 < slice.length) {
+        const b0 = slice[si++], b1 = slice[si++], b2 = slice[si++];
+        out[oi++] = (b0 << 4) | (b1 >> 4);
+        out[oi++] = ((b1 & 0x0f) << 8) | b2;
+      }
+      if (oi < count && si + 1 < slice.length) out[oi] = (slice[si] << 4) | (slice[si + 1] >> 4);
+      return out;
+    }
+    // Generic MSB-first bit-packed (14-bit etc.)
+    let bp = 0, bb = 0, bc = 0;
+    const mask = (1 << bps) - 1;
+    for (let i = 0; i < count; i++) {
+      while (bc < bps && bp < slice.length) { bb = (bb << 8) | slice[bp++]; bc += 8; }
+      if (bc < bps) break;
+      out[i] = (bb >>> (bc - bps)) & mask;
+      bc -= bps;
+    }
+    return out;
+  }
+
+  // Calibrated Nikon ZeroFC physical shoulder tone curve (12-param out-of-sample fit vs libPCEngine)
+  function applyNikonZeroFcTone(x) {
+    if (x <= 0) return 0.0179;
+    const lin = x * 1.902;
+    const comp = lin / (1.0 + 0.379 * lin);
+    const u = srgbEnc(comp >= 1 ? 1 : comp);
+    const om = 1.0 - u;
+    const y = 0.0179 + 0.9821 * (u + 0.580 * u * om + 0.669 * u * om * (u - 0.5) - 0.379 * u * om * om);
+    return y <= 0 ? 0 : y >= 1 ? 1 : y;
+  }
+
+  function decodeRawBayer(bytes, options = {}) {
+    const t0 = nowMs();
+    const s = parseRawStructure(bytes);
+    if (!s.rawIfd) return null;
+    const isNikonHE = s.isTicoRaw || s.nefCompCode === 13 || s.nefCompCode === 14;
+    if (isNikonHE) return null;
+
+    const raw = s.rawIfd;
+    const W = raw.width, H = raw.height, bps = raw.bps, comp = raw.comp;
+    if (W <= 0 || H <= 0 || W > 16384 || H > 16384) return null;
+
+    // Determine crop box [cx0, cy0, cw, ch] aligned to even 2x2 Bayer cell boundary
+    let cx0 = 0, cy0 = 0, cw = W, ch = H;
+    if (s.cropAreaMaker && s.cropAreaMaker.length >= 4 && s.cropAreaMaker[2] > 0 && s.cropAreaMaker[3] > 0) {
+      [cx0, cy0, cw, ch] = s.cropAreaMaker;
+    } else if (s.dng.activeArea && s.dng.activeArea.length >= 4) {
+      const [top, left, bottom, right] = s.dng.activeArea;
+      cx0 = left; cy0 = top; cw = right - left; ch = bottom - top;
+      if (s.dng.defaultCropOrigin && s.dng.defaultCropSize) {
+        cx0 += Math.round(s.dng.defaultCropOrigin[0] || 0);
+        cy0 += Math.round(s.dng.defaultCropOrigin[1] || 0);
+        cw = Math.round(s.dng.defaultCropSize[0] || cw);
+        ch = Math.round(s.dng.defaultCropSize[1] || ch);
+      }
+    } else if (s.dng.defaultCropOrigin && s.dng.defaultCropSize) {
+      cx0 = Math.round(s.dng.defaultCropOrigin[0] || 0);
+      cy0 = Math.round(s.dng.defaultCropOrigin[1] || 0);
+      cw = Math.round(s.dng.defaultCropSize[0] || W);
+      ch = Math.round(s.dng.defaultCropSize[1] || H);
+    }
+    cx0 = Math.max(0, Math.min(W - 2, cx0 & ~1));
+    cy0 = Math.max(0, Math.min(H - 2, cy0 & ~1));
+    cw = Math.max(2, Math.min(W - cx0, cw) & ~1);
+    ch = Math.max(2, Math.min(H - cy0, ch) & ~1);
+    const halfW = cw >> 1, halfH = ch >> 1;
+
+    // Bayer CFA phase lookup: cfa[0..3] in {0=R, 1=G, 2=B} for 2x2 block at (even, even)
+    const cfa = raw.cfa && raw.cfa.length >= 4 ? raw.cfa : [0, 1, 1, 2];
+
+    // Black levels (per 2x2 Bayer slot) & White level
+    const bl4 = [0, 0, 0, 0];
+    if (s.blackLevelMaker && s.blackLevelMaker.length >= 4) {
+      for (let i = 0; i < 4; i++) bl4[i] = s.blackLevelMaker[i];
+    } else if (s.dng.blackLevel && s.dng.blackLevel.length >= 1) {
+      const b = s.dng.blackLevel;
+      for (let i = 0; i < 4; i++) bl4[i] = b.length >= 4 ? b[i] : b[0];
+    }
+    const maxCode = (1 << Math.min(16, bps)) - 1;
+    const whiteLevel = (s.dng.whiteLevel && s.dng.whiteLevel[0] > 0) ? s.dng.whiteLevel[0] : maxCode;
+
+    // White balance multipliers [wbR, wbG=1, wbB]
+    let wbR = 1, wbB = 1;
+    if (s.wbRB && s.wbRB.length >= 2 && s.wbRB[0] > 0 && s.wbRB[1] > 0) {
+      wbR = s.wbRB[0]; wbB = s.wbRB[1];
+    } else if (s.dng.asShotNeutral && s.dng.asShotNeutral.length >= 3 && s.dng.asShotNeutral[0] > 0 && s.dng.asShotNeutral[2] > 0) {
+      const nG = s.dng.asShotNeutral[1] || 1;
+      wbR = nG / s.dng.asShotNeutral[0];
+      wbB = nG / s.dng.asShotNeutral[2];
+    }
+
+    // Channel scales mapped per 2x2 slot (0..3) -> [targetChan (0/1/2), black, scale]
+    const slotChan = new Uint8Array(4), slotBl = new Float32Array(4), slotSc = new Float32Array(4);
+    for (let k = 0; k < 4; k++) {
+      const chIdx = cfa[k] <= 2 ? cfa[k] : 1;
+      slotChan[k] = chIdx;
+      slotBl[k] = bl4[k];
+      const range = Math.max(1, whiteLevel - bl4[k]);
+      const g = chIdx === 0 ? wbR : chIdx === 2 ? wbB : 0.5; // two G sites summed -> 0.5 each!
+      slotSc[k] = g / range;
+    }
+
+    const linLut = s.dng.linearizationTable && s.dng.linearizationTable.length > 0 ? s.dng.linearizationTable : null;
+    const camRgb = new Float32Array(halfW * halfH * 3);
+    let formatLabel = '';
+
+    // Path A: Nikon 12-bit / 14-bit Lossless Compressed NEF (comp=34713)
+    if (comp === 34713) {
+      if (!s.linTable || s.linTable.length < 10 || (bps !== 12 && bps !== 14)) return null;
+      if (s.linTable[0] !== 0x46 && s.linTable[0] !== 0x49) return null;
+      if (!raw.stripOffsets || !raw.stripCounts) return null;
+      const so = raw.stripOffsets[0], sl = raw.stripCounts[0];
+      if (so < 0 || so + sl > bytes.length) return null;
+
+      const lt = s.linTable;
+      const ltDv = new DataView(lt.buffer, lt.byteOffset, lt.byteLength);
+      const vpred = [
+        [ltDv.getUint16(2, s.mnLe), ltDv.getUint16(4, s.mnLe)],
+        [ltDv.getUint16(6, s.mnLe), ltDv.getUint16(8, s.mnLe)],
+      ];
+      const huff = bps === 14 ? NIKON_HUFF_14 : NIKON_HUFF_12;
+      const tblLen = huff.tblLen, tblSym = huff.tblSym;
+      const data = bytes.subarray(so, so + sl);
+      const dLen = data.length;
+      let bp = 0, bb = 0, bc = 0, hp0 = 0, hp1 = 0;
+
+      for (let r = 0; r < H; r++) {
+        const vp = vpred[r & 1];
+        const inY = r >= cy0 && r < cy0 + ch;
+        const rowSlotBase = (r & 1) << 1;
+        const dstRow = inY ? (((r - cy0) >> 1) * halfW * 3) : -1;
+        for (let c = 0; c < W; c++) {
+          while (bc < 23 && bp < dLen) { bb = (bb << 8) | data[bp++]; bc += 8; }
+          const peek = (bb >>> (bc - 8)) & 0xff;
+          const cl = tblLen[peek], sym = tblSym[peek];
+          bc -= cl;
+          let diff = 0;
+          if (sym > 0) {
+            if (bc < sym) { while (bc <= 23 && bp < dLen) { bb = (bb << 8) | data[bp++]; bc += 8; } }
+            diff = (bb >>> (bc - sym)) & ((1 << sym) - 1);
+            bc -= sym;
+            if ((diff & (1 << (sym - 1))) === 0) diff -= (1 << sym) - 1;
+          }
+          let val;
+          if (c < 2) {
+            vp[c] += diff;
+            if (c === 0) hp0 = vp[0]; else hp1 = vp[1];
+            val = vp[c];
+          } else if ((c & 1) === 0) {
+            hp0 += diff; val = hp0;
+          } else {
+            hp1 += diff; val = hp1;
+          }
+          if (inY && c >= cx0 && c < cx0 + cw) {
+            const slot = rowSlotBase | (c & 1);
+            const idx = dstRow + ((c - cx0) >> 1) * 3 + slotChan[slot];
+            camRgb[idx] += (val - slotBl[slot]) * slotSc[slot];
+          }
+        }
+      }
+      formatLabel = bps + '-bit Lossless NEF';
+    } else if (comp === 1 || (comp === 7 && s.isDng)) {
+      // Path B & C: Uncompressed 12/14/16-bit NEF/DNG or Lossless-JPEG (SOF3) DNG (strips or tiles)
+      const scatterBlock = (blockData, bw, bh, bx0, by0) => {
+        const yStart = Math.max(by0, cy0), yEnd = Math.min(by0 + bh, cy0 + ch);
+        const xStart = Math.max(bx0, cx0), xEnd = Math.min(bx0 + bw, cx0 + cw);
+        for (let y = yStart; y < yEnd; y++) {
+          const sy = y - by0, rowSlotBase = (y & 1) << 1;
+          const dstRow = ((y - cy0) >> 1) * halfW * 3;
+          for (let x = xStart; x < xEnd; x++) {
+            let val = blockData[sy * bw + (x - bx0)];
+            if (linLut && val < linLut.length) val = linLut[val];
+            const slot = rowSlotBase | (x & 1);
+            const idx = dstRow + ((x - cx0) >> 1) * 3 + slotChan[slot];
+            camRgb[idx] += (val - slotBl[slot]) * slotSc[slot];
+          }
+        }
+      };
+
+      if (raw.tileW && raw.tileH && raw.tileOffsets && raw.tileCounts) {
+        const tw = raw.tileW, th = raw.tileH;
+        const tAcross = Math.ceil(W / tw), tDown = Math.ceil(H / th);
+        for (let ty = 0; ty < tDown; ty++) {
+          for (let tx = 0; tx < tAcross; tx++) {
+            const ti = ty * tAcross + tx;
+            if (ti >= raw.tileOffsets.length) break;
+            const off = raw.tileOffsets[ti], cnt = raw.tileCounts[ti];
+            if (off < 0 || off + cnt > bytes.length) return null;
+            const slice = bytes.subarray(off, off + cnt);
+            if (comp === 7) {
+              const dec = decodeLosslessJpegBlock(slice);
+              if (!dec) return null;
+              scatterBlock(dec.data, dec.width, dec.height, tx * tw, ty * th);
+            } else {
+              const dec = unpackBayerBlock(slice, tw * th, bps, s.tiffLe);
+              scatterBlock(dec, tw, th, tx * tw, ty * th);
+            }
+          }
+        }
+      } else if (raw.stripOffsets && raw.stripCounts) {
+        const rps = Math.min(H, raw.rps || H);
+        const nStrips = Math.min(raw.stripOffsets.length, Math.ceil(H / rps));
+        for (let si = 0; si < nStrips; si++) {
+          const y0 = si * rps, rows = Math.min(rps, H - y0);
+          const off = raw.stripOffsets[si], cnt = raw.stripCounts[si];
+          if (off < 0 || off + cnt > bytes.length) return null;
+          const slice = bytes.subarray(off, off + cnt);
+          if (comp === 7) {
+            const dec = decodeLosslessJpegBlock(slice);
+            if (!dec) return null;
+            scatterBlock(dec.data, dec.width, dec.height, 0, y0);
+          } else {
+            const dec = unpackBayerBlock(slice, W * rows, bps, s.tiffLe);
+            scatterBlock(dec, W, rows, 0, y0);
+          }
+        }
+      } else {
+        return null;
+      }
+      formatLabel = s.isDng ? (comp === 7 ? bps + '-bit Lossless DNG' : bps + '-bit Uncompressed DNG') : (bps + '-bit Uncompressed NEF');
+    } else {
+      return null;
+    }
+
+    // Select CameraRGB -> linear sRGB 3x3 matrix
+    let mat = null, matrixSource = 'generic-fallback';
+    if (s.isDng && s.dng.colorMatrix2) {
+      mat = dngColorMatrixToCam2Srgb(s.dng.colorMatrix2);
+      if (mat) matrixSource = 'dng-color-matrix-2';
+    }
+    if (!mat && s.isDng && s.dng.colorMatrix1) {
+      mat = dngColorMatrixToCam2Srgb(s.dng.colorMatrix1);
+      if (mat) matrixSource = 'dng-color-matrix-1';
+    }
+    if (!mat) {
+      const lk = lookupNikonMatrix(s.model);
+      mat = lk.matrix;
+      matrixSource = lk.source;
+    }
+
+    // Area-average downscale linear camRgb to maxDim before tone mapping
+    const maxDim = Math.max(64, Number(options.maxDim) || 1400);
+    let outW = halfW, outH = halfH, linRgb = camRgb;
+    if (halfW > maxDim || halfH > maxDim) {
+      const sc = Math.min(maxDim / halfW, maxDim / halfH);
+      outW = Math.max(1, Math.round(halfW * sc));
+      outH = Math.max(1, Math.round(halfH * sc));
+      linRgb = new Float32Array(outW * outH * 3);
+      const sxStep = halfW / outW, syStep = halfH / outH;
+      for (let y = 0; y < outH; y++) {
+        const y0 = Math.floor(y * syStep), y1 = Math.min(halfH, Math.max(y0 + 1, Math.floor((y + 1) * syStep)));
+        for (let x = 0; x < outW; x++) {
+          const x0 = Math.floor(x * sxStep), x1 = Math.min(halfW, Math.max(x0 + 1, Math.floor((x + 1) * sxStep)));
+          let r = 0, g = 0, b = 0, n = 0;
+          for (let sy = y0; sy < y1; sy++) {
+            for (let sx = x0; sx < x1; sx++) {
+              const p = (sy * halfW + sx) * 3;
+              r += camRgb[p]; g += camRgb[p + 1]; b += camRgb[p + 2]; n++;
+            }
+          }
+          const d = (y * outW + x) * 3;
+          linRgb[d] = r / n; linRgb[d + 1] = g / n; linRgb[d + 2] = b / n;
+        }
+      }
+    }
+
+    // Apply 3x3 ColorMatrix + calibrated Nikon ZeroFC physical shoulder tone curve -> RGBA8
+    const rgba = new Uint8ClampedArray(outW * outH * 4);
+    const m0 = mat[0], m1 = mat[1], m2 = mat[2];
+    const m3 = mat[3], m4 = mat[4], m5 = mat[5];
+    const m6 = mat[6], m7 = mat[7], m8 = mat[8];
+    for (let i = 0, n = outW * outH; i < n; i++) {
+      const si = i * 3, di = i * 4;
+      const cr = linRgb[si], cg = linRgb[si + 1], cb = linRgb[si + 2];
+      const sr = m0 * cr + m1 * cg + m2 * cb;
+      const sg = m3 * cr + m4 * cg + m5 * cb;
+      const sb = m6 * cr + m7 * cg + m8 * cb;
+      rgba[di]     = clampByte(applyNikonZeroFcTone(sr) * 255);
+      rgba[di + 1] = clampByte(applyNikonZeroFcTone(sg) * 255);
+      rgba[di + 2] = clampByte(applyNikonZeroFcTone(sb) * 255);
+      rgba[di + 3] = 255;
+    }
+
+    const oriented = applyOrientationRGBA(outW, outH, rgba, s.orientation);
+    return {
+      width: oriented.width,
+      height: oriented.height,
+      data: oriented.data,
+      format: formatLabel,
+      model: s.model,
+      ms: nowMs() - t0,
+      matrixSource,
+    };
+  }
+
   return {
     MAX_PHOTO_BYTES,
     RAW_EXT,
@@ -3127,6 +4557,12 @@ return {serialize, deserialize};
     decodeTga,
     decodeHdrOrPfm,
     extractSceneSamples,
+    inspectPhotoMetadata,
+    buildInverseLut3D,
+    applyLut3DToRgba,
+    defilterRgba,
+    decodeRawBayer,
+    _factory: lutPhotoFactory,
   };
 });
 </script><script>(function(){
@@ -3174,12 +4610,23 @@ return {serialize, deserialize};
       compareHeading:'效果对比',
       photoHint:'可直接拖入或粘贴 JPG / PNG / TIFF / NEF / RAF / ARW / CR3 / DNG',
       changePhotoBtn:'换一张照片',
+      photoBaseLabel:'原图基准',
+      baseModeAuto:'自动还原 ZeroFC 基准（推荐）',
+      baseModeBayer:'纯原始 RAW 解码（Bayer → ZeroFC）',
+      baseModeEmbed:'保留原图内嵌预览（不剥离）',
       fig1:'01 / 原图',
       fig2:'02 / 目标 LUT',
       fig3:'03 / NP3 效果预览',
       origRef:'sRGB 参考',
       origRaw:'RAW 内嵌预览（含拍摄时优化校准）',
       origEmbed:'内嵌预览 · sRGB 参考',
+      origZeroFC:'ZeroFC 零基准',
+      origDefilterFC:'已剥离内嵌滤镜 · ZeroFC',
+      origDefilterStd:'已校正基准 · ZeroFC',
+      origBayer:'原始 RAW (Bayer) · ZeroFC',
+      origEmbedUnstripped:'原图内嵌预览（未剥离）',
+      origEmbedWarn:'原图内嵌预览（无法自动剥离）',
+      origEmbedKeep:'原图内嵌预览',
       targetWait:'等待选择风格',
       targetApplied:'已套用目标 LUT',
       fitIdle:'选择风格后自动生成预览',
@@ -3241,6 +4688,8 @@ return {serialize, deserialize};
       stDone:'拟合完成，可直接导出 NP3 或展开下方「机内质感与微调」精修。',
       stCancelled:'已取消拟合。',
       stRawLoading:'正在提取相机 RAW 内嵌预览图…',
+      stDefiltering:'正在剥离内嵌优化校准并还原 ZeroFC 基准…',
+      stBayerDecoding:'正在进行纯原始 RAW (Bayer) 解码…',
       stPhotoLoaded:n=>'已更换预览照片：'+(n||'剪贴板图像'),
       stExported:(f,n)=>'已导出 '+f+'.NP3（名称：'+n+'）。',
       progStart:'正在拟合…',
@@ -3294,12 +4743,23 @@ return {serialize, deserialize};
       compareHeading:'Look Comparison',
       photoHint:'Drop or paste JPG / PNG / TIFF / NEF / RAF / ARW / CR3 / DNG',
       changePhotoBtn:'Change Photo',
+      photoBaseLabel:'Baseline',
+      baseModeAuto:'Auto ZeroFC Baseline (Recommended)',
+      baseModeBayer:'Raw Bayer Decode (Bayer → ZeroFC)',
+      baseModeEmbed:'Keep Embedded Preview (Original)',
       fig1:'01 / Original',
       fig2:'02 / Target LUT',
       fig3:'03 / NP3 Preview',
       origRef:'sRGB Reference',
       origRaw:'Embedded RAW Preview',
       origEmbed:'Embedded Preview · sRGB',
+      origZeroFC:'ZeroFC Baseline',
+      origDefilterFC:'De-filtered · ZeroFC',
+      origDefilterStd:'Compensated · ZeroFC',
+      origBayer:'Raw Bayer · ZeroFC',
+      origEmbedUnstripped:'Embedded Preview (Unstripped)',
+      origEmbedWarn:'Embedded Preview (Not Invertible)',
+      origEmbedKeep:'Original Embedded Preview',
       targetWait:'Waiting for look',
       targetApplied:'Target LUT applied',
       fitIdle:'Select a look to auto-preview',
@@ -3361,6 +4821,8 @@ return {serialize, deserialize};
       stDone:'Fit complete. Ready to export NP3 or expand Fine-Tune below.',
       stCancelled:'Fit cancelled.',
       stRawLoading:'Extracting embedded preview from camera RAW…',
+      stDefiltering:'Stripping embedded Picture Control to ZeroFC baseline…',
+      stBayerDecoding:'Decoding raw Bayer sensor data…',
       stPhotoLoaded:n=>'Preview photo updated: '+(n||'Clipboard image'),
       stExported:(f,n)=>'Exported '+f+'.NP3 (Name: '+n+').',
       progStart:'Fitting…',
@@ -3440,6 +4902,7 @@ return {serialize, deserialize};
     if(w.includes('超出 LUT 定义域'))return 'Some inputs exceeded the LUT domain and were clamped at the boundary.';
     if(w.includes('超出 SDR 0–1'))return 'Some LUT outputs exceeded SDR 0–1 and were clipped.';
     if(w.includes('Log 转换基于 sRGB'))return 'Log conversion uses sRGB as a scene proxy and cannot recover clipped JPEG highlights.';
+    if(w.includes('名称含 Log 字样'))return 'This LUT name suggests a Log input (e.g. N-Log / F-Log2 / S-Log3), while LUT Input Space is still set to sRGB. Switch LUT Input Space on the left if this is a Log LUT, otherwise hue and contrast will be inaccurate.';
     if(w.includes('还原度较低'))return 'Low fidelity: parts of this LUT exceed Nikon Flexible Color parameter limits; exported NP3 captures the primary tone and color cast.';
     const m=w.match(/当前照片误差\s*([\d.]+).*通用集误差\s*([\d.]+)/);
     if(m)return 'Scene-weighted for current photo (current photo RMSE '+m[1]+' / 255, generic holdout RMSE '+m[2]+' / 255).';
@@ -3453,10 +4916,12 @@ return {serialize, deserialize};
     if(msg.includes('256 MB'))return 'Preview photo must not exceed 256 MB.';
     if(msg.includes('前置 LUT'))return 'Please select a valid Pre-LUT file.';
     if(msg.includes('卡槽编号'))return 'Slot number must be between 1 and 99.';
+    if(msg.includes('无法解码该 RAW'))return 'Failed to decode raw Bayer image data.';
+    if(msg.includes('无法从该 RAW'))return 'Could not extract preview from RAW file.';
     return msg;
   }
 
-  let cube=null,preLut=null,result=null,shownResult=null,baseParams=null,activeParams=null,busy=false,sourceName='',sourcePreset=null,photoVersion=0,lutVersion=0,preVersion=0;
+  let cube=null,preLut=null,result=null,shownResult=null,baseParams=null,activeParams=null,busy=false,sourceName='',sourcePreset=null,photoVersion=0,photoTaskGen=0,photoState=null,lutVersion=0,preVersion=0;
   let fitGeneration=0,activeGeneration=null,fitTimer=null,previewTimer=null,manualTimer=null,queuedFit=false;
   let fitKey='fitIdle',origKind='ref',origCustom='',statusState={kind:'stIdle',arg1:'',arg2:''};
   const src=document.createElement('canvas');src.width=600;src.height=800;
@@ -3622,17 +5087,165 @@ return {serialize, deserialize};
   }
 
   function showWarnings(messages){
-    const list=(messages||[]).map(translateWarning);
+    const raw=[...(messages||[])];
+    if(!sourcePreset&&cube&&$('inputSpace').value==='srgb'&&/(?:^|[^a-z0-9])([snfvcd][-_]?log\d*c?|log[-_]?c\d?)(?:$|[^a-z0-9])/i.test((sourceName||'')+' '+(cube.title||''))){
+      raw.unshift('检测到 LUT 名称含 Log 字样，但当前「LUT 输入空间」仍为 sRGB；若该 LUT 用于还原 Log 素材，请在左侧切换对应 Log 输入空间，否则色相与反差会明显偏离。');
+    }
+    const list=raw.map(translateWarning);
     $('warnings').replaceChildren(...list.map(text=>{const p=document.createElement('p');p.textContent=text;return p;}));
     $('warnings').hidden=!list.length;
   }
   function renderOrigCaption(){
     if(!$('origCaption'))return;
     const d=T();
-    if(origKind==='ref')$('origCaption').textContent=d.origRef;
-    else if(origKind==='raw')$('origCaption').textContent=d.origRaw;
-    else if(origKind==='embed')$('origCaption').textContent=d.origEmbed;
-    else $('origCaption').textContent=origCustom;
+    const map={
+      ref:d.origRef,raw:d.origRaw,embed:d.origEmbed,
+      'zero-fc':d.origZeroFC,'defilter-fc':d.origDefilterFC,'defilter-std':d.origDefilterStd,
+      bayer:d.origBayer,'embed-unstripped':d.origEmbedUnstripped,'embed-warn':d.origEmbedWarn,'embed-keep':d.origEmbedKeep
+    };
+    $('origCaption').textContent=map[origKind]||origCustom;
+  }
+  function shouldShowPhotoMetaBar(meta){
+    if(!meta)return false;
+    return Boolean(meta.pictureControl||meta.canDefilter||meta.canDecodeBayer||meta.isNikonHE);
+  }
+  function formatCameraPrefix(meta){
+    if(!meta)return '';
+    let model=String(meta.model||'').trim();
+    const make=String(meta.make||'').trim();
+    if(meta.isNikon){
+      if(model){
+        model=model.replace(/^NIKON\s+/i,'').replace(/\b(Z\s*\d+)_2\b/i,'$1 II').replace(/\b(Z\s*\d+)_3\b/i,'$1 III').replace(/_/g,' ');
+        return (lang==='zh'?'尼康 ':'Nikon ')+model;
+      }
+      return lang==='zh'?'尼康相机':'Nikon';
+    }
+    if(model){
+      if(make&&!model.toLowerCase().startsWith(make.toLowerCase()))return make+' '+model;
+      return model;
+    }
+    return meta.format?String(meta.format).toUpperCase():'';
+  }
+  function formatCompTag(meta){
+    if(!meta)return '';
+    if(meta.isNikonHE)return /★|\*/.test(String(meta.compressionName||''))?'HE★':'HE';
+    if(meta.isLosslessRaw)return lang==='zh'?'无损 RAW':'Lossless RAW';
+    if(meta.isUncompressedRaw)return lang==='zh'?'未压缩 RAW':'Uncompressed RAW';
+    if(String(meta.format||'').toUpperCase()==='DNG')return 'DNG';
+    if(String(meta.format||'').toUpperCase()==='JPEG')return 'JPEG';
+    return '';
+  }
+  function formatPhotoMetaBar(){
+    const st=photoState,meta=st?.meta;
+    if(!st||!shouldShowPhotoMetaBar(meta))return null;
+    const zh=lang==='zh';
+    const cam=formatCameraPrefix(meta)||(zh?'相机 RAW':'Camera RAW');
+    const comp=formatCompTag(meta);
+    const compParen=comp?(zh?'（'+comp+'）':' ('+comp+')'):'';
+    const pc=meta.pictureControl;
+    const pcName=pc?(String(pc.name||pc.base||'').trim()||(zh?'自定义优化校准':'Custom Picture Control')):'';
+    const hasAdl=meta.activeDLighting&&!/^(off|none|0)$/i.test(String(meta.activeDLighting).trim());
+    const adlNote=hasAdl?(zh?'（机内 ADL：'+meta.activeDLighting+'）':' (ADL: '+meta.activeDLighting+')'):'';
+    const ms=st.lastMs>0?' ('+Math.round(st.lastMs)+' ms)':'';
+    const act=st.activeAction;
+
+    if(act==='loading-defilter'){
+      return {tone:'info',text:zh
+        ?cam+(pcName?' · 内嵌「'+pcName+'」':'')+compParen+' — 正在剥离内嵌滤镜还原 ZeroFC 基准…'
+        :cam+(pcName?' · Embedded "'+pcName+'"':'')+compParen+' — Stripping embedded look to ZeroFC baseline…'};
+    }
+    if(act==='loading-bayer'){
+      return {tone:'info',text:zh
+        ?cam+compParen+' — 正在进行纯原始 RAW (Bayer) 解码 → ZeroFC 基准…'
+        :cam+compParen+' — Decoding raw Bayer sensor data → ZeroFC baseline…'};
+    }
+    if(act==='zero-fc'){
+      return {tone:'ok',text:zh
+        ?cam+compParen+' · 已检测到 ZeroFC 零基准原图'+adlNote
+        :cam+compParen+' · ZeroFC neutral baseline detected'+adlNote};
+    }
+    if(act==='defilter-fc'){
+      return {tone:'ok',text:zh
+        ?cam+' · 内嵌「'+pcName+'」'+compParen+' — 已自动剥离滤镜还原 ZeroFC 基准'+ms+adlNote
+        :cam+' · Embedded "'+pcName+'"'+compParen+' — Auto-stripped look to ZeroFC baseline'+ms+adlNote};
+    }
+    if(act==='defilter-std'){
+      return {tone:'ok',text:zh
+        ?cam+' · 内嵌「'+pcName+'」'+compParen+' — 已自动校正为 ZeroFC 基准'+ms+adlNote
+        :cam+' · Embedded "'+pcName+'"'+compParen+' — Compensated to ZeroFC baseline'+ms+adlNote};
+    }
+    if(act==='bayer'){
+      const autoFromMono=st.mode==='auto'&&(pc?.isMonochrome||meta.defilterReason==='curve-collapsed');
+      if(autoFromMono&&pcName){
+        return {tone:'ok',text:zh
+          ?cam+' · 内嵌「'+pcName+'」无法逆推 — 已自动切换纯原始 RAW (Bayer) 解码 → ZeroFC 基准'+ms
+          :cam+' · Embedded "'+pcName+'" non-invertible — Auto-switched to raw Bayer decode → ZeroFC baseline'+ms};
+      }
+      return {tone:'ok',text:zh
+        ?cam+compParen+' · 已通过纯原始 RAW (Bayer) 解码 → ZeroFC 基准'+ms
+        :cam+compParen+' · Decoded from raw Bayer sensor data → ZeroFC baseline'+ms};
+    }
+    if(act==='warn-he-mono'||act==='warn-he-collapsed'){
+      const heTag=comp||'HE★';
+      return {tone:'warn',text:zh
+        ?cam+' · 内嵌「'+(pcName||'黑白/极端曲线')+'」（'+heTag+'）无法逆推，且尼康 HE/HE★ (TicoRAW) 暂不支持浏览器直接 Bayer 解码；建议改用无损压缩 NEF、NX Studio 导出 ZeroFC 或用 Adobe DNG Converter 转 DNG。'
+        :cam+' · Embedded "'+(pcName||'Monochrome')+'" ('+heTag+') is non-invertible, and Nikon HE/HE★ (TicoRAW) cannot be Bayer-decoded in browser; use Lossless NEF, export ZeroFC from NX Studio, or convert via Adobe DNG Converter.'};
+    }
+    if(act==='warn-mono'){
+      return {tone:'warn',text:zh
+        ?cam+' · 内嵌「'+(pcName||'黑白/极端曲线')+'」'+compParen+'为黑白或极端曲线，无法从预览图还原彩色基准；建议改用无损压缩 NEF 或 ZeroFC 原图。'
+        :cam+' · Embedded "'+(pcName||'Monochrome')+'"'+compParen+' is monochrome or clipped and cannot be inverted from preview; use Lossless NEF or a ZeroFC baseline photo.'};
+    }
+    if(act==='warn-no-recipe'){
+      const isJpgFc=String(meta.format||'').toLowerCase()==='jpeg'&&pc?.isFlexibleColor;
+      if(isJpgFc){
+        return {tone:'warn',text:zh
+          ?cam+' · 检测到「'+pcName+'」'+compParen+'不含可逆参数配方，当前保留原图预览'+adlNote+'；建议载入对应 NEF 原片以自动剥离滤镜还原 ZeroFC 基准。'
+          :cam+' · Detected "'+pcName+'"'+compParen+' without an invertible recipe; keeping original preview'+adlNote+' — drop the matching NEF to auto-strip the look to ZeroFC.'};
+      }
+      return {tone:'warn',text:zh
+        ?cam+' · 检测到「'+pcName+'」'+compParen+'，未含可逆参数配方，当前保留原图内嵌预览'+adlNote+'。'
+        :cam+' · Detected "'+pcName+'"'+compParen+' without an invertible recipe; keeping original embedded preview'+adlNote+'.'};
+    }
+    if(act==='warn-fallback'){
+      return {tone:'warn',text:zh
+        ?cam+compParen+' · 自动基准还原未完成，已回退至原图内嵌预览。'
+        :cam+compParen+' · Baseline recovery unavailable; fell back to original embedded preview.'};
+    }
+    if(pc?.isZeroFC){
+      return {tone:'ok',text:zh
+        ?cam+compParen+' · 原图本身已是 ZeroFC 零基准预览'+adlNote
+        :cam+compParen+' · Original embedded preview is already ZeroFC'+adlNote};
+    }
+    if(pcName){
+      return {tone:'info',text:zh
+        ?cam+' · 当前保留「'+pcName+'」'+compParen+'原图内嵌预览（未剥离，目标 LUT 将直接叠加）'
+        :cam+' · Keeping original "'+pcName+'"'+compParen+' embedded preview (unstripped; target LUT stacks on top)'};
+    }
+    return {tone:'info',text:zh
+      ?cam+compParen+' · 当前保留原图内嵌预览'
+      :cam+compParen+' · Keeping original embedded preview'};
+  }
+  function renderPhotoMetaBar(){
+    const bar=$('photoMetaBar');
+    if(!bar)return;
+    const info=formatPhotoMetaBar();
+    if(!info){
+      bar.hidden=true;
+      bar.classList.toggle('ok',false);
+      bar.classList.toggle('info',false);
+      bar.classList.toggle('warn',false);
+      return;
+    }
+    bar.hidden=false;
+    bar.classList.toggle('ok',info.tone==='ok');
+    bar.classList.toggle('info',info.tone==='info');
+    bar.classList.toggle('warn',info.tone==='warn');
+    if($('photoMetaText'))$('photoMetaText').textContent=info.text;
+    const meta=photoState.meta;
+    if($('photoBaseOptBayer'))$('photoBaseOptBayer').disabled=!meta?.canDecodeBayer;
+    if($('photoBaseOptEmbed'))$('photoBaseOptEmbed').disabled=!photoState.embedRgba;
+    if($('photoBaseMode'))$('photoBaseMode').value=photoState.mode||'auto';
   }
   function renderFileBox(){
     const d=T();
@@ -3707,6 +5320,78 @@ return {serialize, deserialize};
     });
   }
 
+  const origDefilter=D.defilterRgba,origDecodeBayer=D.decodeRawBayer;
+  let photoWorker=null,photoWorkerBlobUrl=null,photoWorkerDisabled=false,photoWorkerJob=null,photoWorkerReqId=0;
+
+  function killPhotoWorker(){
+    if(photoWorker){try{photoWorker.terminate();}catch{}photoWorker=null;}
+    if(photoWorkerJob){const j=photoWorkerJob;photoWorkerJob=null;const err=Error('photo-task-cancelled');err._cancelled=true;j.reject(err);}
+  }
+  function ensurePhotoWorker(){
+    if(photoWorkerDisabled||typeof Worker!=='function'||typeof D._factory!=='function'||typeof C._factory!=='function'||!window.NikonModelData)return null;
+    if(photoWorker)return photoWorker;
+    try{
+      if(!photoWorkerBlobUrl){
+        const code=`'use strict';let P=null,L=null;self.onmessage=async e=>{const m=e.data;try{if(m.type==='init'){P=(${D._factory.toString()})();L=(${C._factory.toString()})(null,m.model);return;}let r=null;if(m.type==='defilter'){r=await P.defilterRgba(m.rgba,m.width,m.height,m.meta,L);}else if(m.type==='bayer'){r=await P.decodeRawBayer(m.bytes,m.options);}const tx=r&&r.data&&r.data.buffer&&r.data.byteOffset===0&&r.data.byteLength===r.data.buffer.byteLength?[r.data.buffer]:[];self.postMessage({type:'done',id:m.id,result:r},tx);}catch(err){self.postMessage({type:'err',id:m.id||0,init:m.type==='init',message:err&&err.message||String(err)});}};`;
+        photoWorkerBlobUrl=URL.createObjectURL(new Blob([code],{type:'application/javascript'}));
+      }
+      const w=new Worker(photoWorkerBlobUrl);
+      w.onmessage=e=>{
+        const m=e.data;
+        if(m.type==='err'&&m.init){
+          photoWorkerDisabled=true;try{w.terminate();}catch{}photoWorker=null;
+          if(photoWorkerJob){const j=photoWorkerJob;photoWorkerJob=null;j.fallback();}
+          return;
+        }
+        if(!photoWorkerJob||m.id!==photoWorkerJob.id)return;
+        const j=photoWorkerJob;photoWorkerJob=null;
+        if(m.type==='done')j.resolve(m.result);
+        else j.reject(Error(m.message||'图像处理失败'));
+      };
+      w.onerror=ev=>{
+        ev?.preventDefault?.();
+        photoWorkerDisabled=true;
+        try{w.terminate();}catch{}
+        photoWorker=null;
+        if(photoWorkerJob){const j=photoWorkerJob;photoWorkerJob=null;j.fallback();}
+      };
+      w.postMessage({type:'init',model:window.NikonModelData});
+      photoWorker=w;
+      return w;
+    }catch{
+      photoWorkerDisabled=true;
+      return null;
+    }
+  }
+  function runPhotoDefilter(rgba,width,height,meta){
+    if(typeof D.defilterRgba!=='function')return Promise.resolve(null);
+    if(D.defilterRgba!==origDefilter)return Promise.resolve().then(()=>D.defilterRgba(rgba,width,height,meta,C));
+    const w=ensurePhotoWorker();
+    if(!w)return Promise.resolve().then(()=>D.defilterRgba(rgba,width,height,meta,C));
+    return new Promise((resolve,reject)=>{
+      const id=++photoWorkerReqId;
+      photoWorkerJob={
+        id,resolve,reject,
+        fallback(){Promise.resolve().then(()=>D.defilterRgba(rgba,width,height,meta,C)).then(resolve,reject);}
+      };
+      w.postMessage({type:'defilter',id,rgba,width,height,meta});
+    });
+  }
+  function runPhotoBayer(bytes,options={maxDim:1400}){
+    if(typeof D.decodeRawBayer!=='function')return Promise.resolve(null);
+    if(D.decodeRawBayer!==origDecodeBayer)return Promise.resolve().then(()=>D.decodeRawBayer(bytes,options));
+    const w=ensurePhotoWorker();
+    if(!w)return Promise.resolve().then(()=>D.decodeRawBayer(bytes,options));
+    return new Promise((resolve,reject)=>{
+      const id=++photoWorkerReqId;
+      photoWorkerJob={
+        id,resolve,reject,
+        fallback(){Promise.resolve().then(()=>D.decodeRawBayer(bytes,options)).then(resolve,reject);}
+      };
+      w.postMessage({type:'bayer',id,bytes,options});
+    });
+  }
+
   function fitState(){
     const d=T();
     let msg=d[fitKey]||d.fitIdle;
@@ -3756,6 +5441,7 @@ return {serialize, deserialize};
     renderFileBox();
     showPresetInfo(sourcePreset);
     spaceUI(false);
+    renderPhotoMetaBar();
     renderOrigCaption();
     $('targetCaption').textContent=ready()?d.targetApplied:d.targetWait;
     updateManualLabels();
@@ -3894,90 +5580,292 @@ return {serialize, deserialize};
     const url=URL.createObjectURL(blob);
     return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(Error('decode-failed'));img.src=url;}).finally(()=>URL.revokeObjectURL(url));
   }
-  function renderImgToSrc(img,orientation=1){
+  function makeImageData(ctx,data,w,h){
+    if(typeof ImageData==='function'&&data.length===w*h*4)return new ImageData(data,w,h);
+    const id=ctx.createImageData?ctx.createImageData(w,h):{width:w,height:h,data:new Uint8ClampedArray(w*h*4)};
+    if(id.data&&id.data!==data)id.data.set(data.subarray(0,Math.min(data.length,id.data.length)));
+    return id;
+  }
+  function extractRgbaFromImg(img,orientation=1){
     const o=orientation|0,swap=o>=5&&o<=8;
     const maxW=swap?900:700,maxH=swap?700:900;
     const scale=Math.min(1,maxW/img.width,maxH/img.height);
     const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
-    if(o<=1||o>8){
-      src.width=w;src.height=h;const ctx=src.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);return;
-    }
     const tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;
     const tctx=tmp.getContext('2d');tctx.fillStyle='#fff';tctx.fillRect(0,0,w,h);tctx.drawImage(img,0,0,w,h);
-    const rot=D.applyOrientationRGBA(w,h,tctx.getImageData(0,0,w,h).data,o);
-    src.width=rot.width;src.height=rot.height;
-    const ctx=src.getContext('2d'),id=typeof ImageData==='function'?new ImageData(rot.data,rot.width,rot.height):ctx.createImageData(rot.width,rot.height);
-    if(id.data!==rot.data)id.data.set(rot.data);
-    ctx.putImageData(id,0,0);
+    const copy=new Uint8ClampedArray(tctx.getImageData(0,0,w,h).data);
+    if(o<=1||o>8)return {width:w,height:h,data:copy};
+    return D.applyOrientationRGBA(w,h,copy,o);
   }
-  function renderRgbaToSrc(decoded){
+  function scaleRgbaToMax(decoded,maxW=700,maxH=900){
+    const scale=Math.min(1,maxW/decoded.width,maxH/decoded.height);
+    const w=Math.max(1,Math.round(decoded.width*scale)),h=Math.max(1,Math.round(decoded.height*scale));
+    const data=decoded.data instanceof Uint8ClampedArray?decoded.data:new Uint8ClampedArray(decoded.data);
+    if(w===decoded.width&&h===decoded.height)return {width:w,height:h,data};
+    const full=document.createElement('canvas');full.width=decoded.width;full.height=decoded.height;
+    const fctx=full.getContext('2d');fctx.putImageData(makeImageData(fctx,data,decoded.width,decoded.height),0,0);
+    const tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;
+    const tctx=tmp.getContext('2d');tctx.fillStyle='#fff';tctx.fillRect(0,0,w,h);tctx.drawImage(full,0,0,w,h);
+    return {width:w,height:h,data:new Uint8ClampedArray(tctx.getImageData(0,0,w,h).data)};
+  }
+  function putRgbaToSrc(decoded){
     const scale=Math.min(1,700/decoded.width,900/decoded.height);
     const w=Math.max(1,Math.round(decoded.width*scale)),h=Math.max(1,Math.round(decoded.height*scale));
+    const data=decoded.data instanceof Uint8ClampedArray?decoded.data:new Uint8ClampedArray(decoded.data);
+    if(w===decoded.width&&h===decoded.height){
+      src.width=w;src.height=h;
+      const ctx=src.getContext('2d');
+      ctx.putImageData(makeImageData(ctx,data,w,h),0,0);
+      return;
+    }
     const full=document.createElement('canvas');full.width=decoded.width;full.height=decoded.height;
-    const fctx=full.getContext('2d'),id=typeof ImageData==='function'?new ImageData(decoded.data,decoded.width,decoded.height):fctx.createImageData(decoded.width,decoded.height);
-    if(id.data!==decoded.data)id.data.set(decoded.data);
-    fctx.putImageData(id,0,0);
-    src.width=w;src.height=h;const ctx=src.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(full,0,0,w,h);
+    const fctx=full.getContext('2d');
+    fctx.putImageData(makeImageData(fctx,data,decoded.width,decoded.height),0,0);
+    src.width=w;src.height=h;
+    const ctx=src.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(full,0,0,w,h);
+  }
+  async function applyPhotoBaselineMode(requestedMode,version){
+    if(version!==photoVersion||!photoState||photoState.version!==version)return;
+    const taskGen=++photoTaskGen;
+    killPhotoWorker();
+
+    const meta=photoState.meta;
+    const showBar=shouldShowPhotoMetaBar(meta);
+    let mode=(requestedMode==='bayer'||requestedMode==='embed')?requestedMode:'auto';
+    if(mode==='bayer'&&!meta?.canDecodeBayer)mode='auto';
+    if(mode==='embed'&&!photoState.embedRgba)mode=meta?.canDecodeBayer?'bayer':'auto';
+    photoState.mode=mode;
+    if($('photoBaseMode'))$('photoBaseMode').value=mode;
+
+    const finishRender=(rgba,action,nextOrigKind,ms=0)=>{
+      if(version!==photoVersion||taskGen!==photoTaskGen)return;
+      photoState.activeAction=action;
+      photoState.lastMs=ms;
+      if(rgba)putRgbaToSrc(rgba);
+      origKind=nextOrigKind;
+      origCustom=photoState.fallbackCustom;
+      renderPhotoMetaBar();
+      renderOrigCaption();
+      if($('sceneWeight')?.checked&&ready()){
+        invalidate();
+        preview();
+        scheduleFit();
+      }else{
+        preview();
+        if(!busy)setStatusKey('stPhotoLoaded',photoState.fileName);
+      }
+    };
+
+    if(!showBar){
+      finishRender(photoState.embedRgba,'none',photoState.fallbackKind,0);
+      return;
+    }
+
+    const pc=meta.pictureControl;
+    const isMono=Boolean(pc?.isMonochrome);
+    const isCollapsed=meta.defilterReason==='curve-collapsed';
+    const nonInvertible=isMono||isCollapsed;
+
+    let targetStrategy='embed';
+    if(mode==='embed'){
+      targetStrategy='embed';
+    }else if(mode==='bayer'){
+      targetStrategy='bayer';
+    }else{
+      if(pc?.isZeroFC&&photoState.embedRgba){
+        targetStrategy='zero-fc';
+      }else if(meta.canDefilter==='flexible-color'&&photoState.embedRgba){
+        targetStrategy='defilter-fc';
+      }else if(nonInvertible&&meta.canDecodeBayer){
+        targetStrategy='bayer';
+      }else if(meta.canDefilter==='standard-baseline'&&photoState.embedRgba){
+        targetStrategy='defilter-std';
+      }else if(meta.canDecodeBayer){
+        targetStrategy='bayer';
+      }else if(nonInvertible&&meta.isNikonHE){
+        targetStrategy=isMono?'warn-he-mono':'warn-he-collapsed';
+      }else if(nonInvertible){
+        targetStrategy='warn-mono';
+      }else if(pc&&!pc.isZeroFC){
+        targetStrategy='warn-no-recipe';
+      }else{
+        targetStrategy='embed';
+      }
+    }
+
+    if(targetStrategy==='zero-fc'){
+      finishRender(photoState.embedRgba,'zero-fc','zero-fc',0);
+      return;
+    }
+    if(targetStrategy==='embed'){
+      const k=pc?.isZeroFC?'zero-fc':(pc?'embed-unstripped':'embed-keep');
+      finishRender(photoState.embedRgba,'embed',k,0);
+      return;
+    }
+    if(targetStrategy==='warn-he-mono'||targetStrategy==='warn-he-collapsed'||targetStrategy==='warn-mono'){
+      finishRender(photoState.embedRgba,targetStrategy,'embed-warn',0);
+      return;
+    }
+    if(targetStrategy==='warn-no-recipe'){
+      finishRender(photoState.embedRgba,'warn-no-recipe','embed-keep',0);
+      return;
+    }
+
+    if(targetStrategy==='defilter-fc'||targetStrategy==='defilter-std'){
+      if(photoState.defilterRgba){
+        const act=photoState.defilterRgba.method==='inverse-standard'?'defilter-std':'defilter-fc';
+        finishRender(photoState.defilterRgba,act,act,photoState.defilterRgba.ms||0);
+        return;
+      }
+      photoState.activeAction='loading-defilter';
+      renderPhotoMetaBar();
+      if(!busy)setStatusKey('stDefiltering');
+      try{
+        const res=await runPhotoDefilter(photoState.embedRgba.data,photoState.embedRgba.width,photoState.embedRgba.height,meta);
+        if(version!==photoVersion||taskGen!==photoTaskGen)return;
+        if(res&&res.data&&res.width>0&&res.height>0){
+          photoState.defilterRgba=res;
+          const act=res.method==='inverse-standard'?'defilter-std':'defilter-fc';
+          finishRender(res,act,act,res.ms||0);
+          return;
+        }
+      }catch(err){
+        if(version!==photoVersion||taskGen!==photoTaskGen)return;
+        if(err&&err._cancelled)return;
+      }
+      if(meta.canDecodeBayer){
+        targetStrategy='bayer';
+      }else{
+        finishRender(photoState.embedRgba,'warn-fallback','embed-keep',0);
+        return;
+      }
+    }
+
+    if(targetStrategy==='bayer'){
+      if(photoState.bayerRgba){
+        finishRender(photoState.bayerRgba,'bayer','bayer',photoState.bayerRgba.ms||0);
+        return;
+      }
+      photoState.activeAction='loading-bayer';
+      renderPhotoMetaBar();
+      if(!busy)setStatusKey('stBayerDecoding');
+      try{
+        const res=await runPhotoBayer(photoState.bytes,{maxDim:1400});
+        if(version!==photoVersion||taskGen!==photoTaskGen)return;
+        if(res&&res.data&&res.width>0&&res.height>0){
+          photoState.bayerRgba=res;
+          photoState.bayerMatrixSource=res.matrixSource||'';
+          finishRender(res,'bayer','bayer',res.ms||0);
+          return;
+        }
+      }catch(err){
+        if(version!==photoVersion||taskGen!==photoTaskGen)return;
+        if(err&&err._cancelled)return;
+      }
+      if(photoState.embedRgba){
+        finishRender(photoState.embedRgba,'warn-fallback','embed-keep',0);
+      }else{
+        throw Error(lang==='en'?'Failed to decode raw Bayer image data.':'无法解码该 RAW 文件的原始 Bayer 图像。');
+      }
+    }
   }
   async function loadPhoto(file){
     const version=++photoVersion;
+    const prevState=photoState;
+    let committed=false;
+    killPhotoWorker();
     try{
       if(!file)return;
       if(file.size>D.MAX_PHOTO_BYTES)throw Error('预览照片不能超过 256 MB。');
       const ext=D.extOf(file.name);
-      let nextKind='ref',nextCustom='';
-      if(D.RAW_EXT.has(ext)){
-        setStatusKey('stRawLoading');
-        const bytes=new Uint8Array(await file.arrayBuffer());if(version!==photoVersion)return;
+      const isRawExt=D.RAW_EXT.has(ext);
+      if(isRawExt)setStatusKey('stRawLoading');
+
+      const bytes=new Uint8Array(await file.arrayBuffer());
+      if(version!==photoVersion)return;
+      const meta=typeof D.inspectPhotoMetadata==='function'?D.inspectPhotoMetadata(bytes):null;
+
+      let embedRgba=null,fallbackKind='ref',fallbackCustom='';
+      if(isRawExt){
         const rawPrev=D.extractRawPreviewJpeg(bytes);
         if(rawPrev){
-          const img=await decodeBlobViaImg(new Blob([rawPrev.jpeg],{type:'image/jpeg'}));if(version!==photoVersion)return;
-          renderImgToSrc(img,rawPrev.orientation);
-          nextKind='raw';
-        }else{
-          const tiffRas=await D.decodeTiffRaster(bytes);if(version!==photoVersion)return;
+          try{
+            const img=await decodeBlobViaImg(new Blob([rawPrev.jpeg],{type:'image/jpeg'}));
+            if(version!==photoVersion)return;
+            embedRgba=extractRgbaFromImg(img,rawPrev.orientation);
+            fallbackKind='raw';
+          }catch(imgErr){
+            if(!meta?.canDecodeBayer)throw imgErr;
+          }
+        }
+        if(!embedRgba&&!meta?.canDecodeBayer){
+          const tiffRas=await D.decodeTiffRaster(bytes);
+          if(version!==photoVersion)return;
           if(!tiffRas)throw Error(lang==='en'?'Could not extract preview from RAW file.':'无法从该 RAW 文件提取预览图。');
-          renderRgbaToSrc(tiffRas);nextKind='custom';nextCustom=tiffRas.format;
+          embedRgba=scaleRgbaToMax(tiffRas,700,900);fallbackKind='custom';fallbackCustom=tiffRas.format;
         }
       }else if(ext==='tif'||ext==='tiff'){
-        const bytes=new Uint8Array(await file.arrayBuffer());if(version!==photoVersion)return;
-        const tiffRas=await D.decodeTiffRaster(bytes);if(version!==photoVersion)return;
-        if(tiffRas){renderRgbaToSrc(tiffRas);nextKind='custom';nextCustom=tiffRas.format+' · sRGB';}
-        else{
+        const tiffRas=await D.decodeTiffRaster(bytes);
+        if(version!==photoVersion)return;
+        if(tiffRas){
+          embedRgba=scaleRgbaToMax(tiffRas,700,900);fallbackKind='custom';fallbackCustom=tiffRas.format+' · sRGB';
+        }else{
           const rawPrev=D.extractRawPreviewJpeg(bytes);
-          const img=await decodeBlobViaImg(rawPrev?new Blob([rawPrev.jpeg],{type:'image/jpeg'}):file);if(version!==photoVersion)return;
-          renderImgToSrc(img,rawPrev?rawPrev.orientation:1);nextKind='custom';nextCustom='TIFF · sRGB';
+          if(rawPrev||!meta?.canDecodeBayer){
+            const img=await decodeBlobViaImg(rawPrev?new Blob([rawPrev.jpeg],{type:'image/jpeg'}):file);
+            if(version!==photoVersion)return;
+            embedRgba=extractRgbaFromImg(img,rawPrev?rawPrev.orientation:1);fallbackKind='custom';fallbackCustom='TIFF · sRGB';
+          }
         }
       }else if(['ppm','pgm','pnm','tga','hdr','pfm'].includes(ext)){
-        const bytes=new Uint8Array(await file.arrayBuffer());if(version!==photoVersion)return;
         const dec=D.decodeNetpbm(bytes)||D.decodeHdrOrPfm(bytes)||D.decodeTga(bytes);
         if(!dec)throw Error(lang==='en'?'Could not decode image file.':'无法解析该图像。');
-        renderRgbaToSrc(dec);nextKind='custom';nextCustom=dec.format+' · sRGB';
+        embedRgba=scaleRgbaToMax(dec,700,900);fallbackKind='custom';fallbackCustom=dec.format+' · sRGB';
       }else{
         try{
-          const img=await decodeBlobViaImg(file);if(version!==photoVersion)return;
-          renderImgToSrc(img,1);
+          const img=await decodeBlobViaImg(file);
+          if(version!==photoVersion)return;
+          embedRgba=extractRgbaFromImg(img,1);
         }catch{
-          const bytes=new Uint8Array(await file.arrayBuffer());if(version!==photoVersion)return;
-          const tiffRas=await D.decodeTiffRaster(bytes);if(version!==photoVersion)return;
-          if(tiffRas){renderRgbaToSrc(tiffRas);nextKind='custom';nextCustom=tiffRas.format+' · sRGB';}
-          else{
+          const tiffRas=await D.decodeTiffRaster(bytes);
+          if(version!==photoVersion)return;
+          if(tiffRas){
+            embedRgba=scaleRgbaToMax(tiffRas,700,900);fallbackKind='custom';fallbackCustom=tiffRas.format+' · sRGB';
+          }else{
             const rawPrev=D.extractRawPreviewJpeg(bytes);
-            if(rawPrev){const img=await decodeBlobViaImg(new Blob([rawPrev.jpeg],{type:'image/jpeg'}));if(version!==photoVersion)return;renderImgToSrc(img,rawPrev.orientation);nextKind='embed';}
-            else{
+            if(rawPrev){
+              const img=await decodeBlobViaImg(new Blob([rawPrev.jpeg],{type:'image/jpeg'}));
+              if(version!==photoVersion)return;
+              embedRgba=extractRgbaFromImg(img,rawPrev.orientation);fallbackKind='embed';
+            }else if(!meta?.canDecodeBayer){
               const dec=D.decodeNetpbm(bytes)||D.decodeHdrOrPfm(bytes)||D.decodeTga(bytes);
-              if(dec){renderRgbaToSrc(dec);nextKind='custom';nextCustom=dec.format+' · sRGB';}
+              if(dec){embedRgba=scaleRgbaToMax(dec,700,900);fallbackKind='custom';fallbackCustom=dec.format+' · sRGB';}
               else if(['heic','heif','hif'].includes(ext))throw Error(lang==='en'?'HEIC/HIF requires Safari or conversion to JPG/PNG first.':'当前浏览器不支持直接解码 HEIC/HIF（Safari 可直接打开，或先转为 JPG/PNG）。');
               else throw Error(lang==='en'?'Unsupported image format.':'无法读取该照片格式。');
             }
           }
         }
       }
-      origKind=nextKind;origCustom=nextCustom;renderOrigCaption();
-      if($('sceneWeight')?.checked&&ready())settingsChanged();
-      else{preview();if(!busy)setStatusKey('stPhotoLoaded',file.name);}
-    }catch(err){if(version===photoVersion)setStatusError(err);}
+
+      photoState={
+        version,fileName:file.name||'',bytes,meta,embedRgba,
+        defilterRgba:null,bayerRgba:null,fallbackKind,fallbackCustom,
+        mode:'auto',activeAction:'none',lastMs:0,bayerMatrixSource:''
+      };
+      committed=true;
+      if($('photoBaseMode'))$('photoBaseMode').value='auto';
+      await applyPhotoBaselineMode('auto',version);
+    }catch(err){
+      if(version===photoVersion){
+        if(committed){photoState=prevState;renderPhotoMetaBar();}
+        setStatusError(err);
+      }
+    }
   }
+  if($('photoBaseMode'))$('photoBaseMode').addEventListener('change',()=>{
+    if(!photoState)return;
+    return applyPhotoBaselineMode($('photoBaseMode').value,photoState.version).catch(err=>setStatusError(err));
+  });
   $('photo').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';return loadPhoto(f);});
   $('previewArea').addEventListener('dragover',e=>{e.preventDefault();$('previewArea').classList.add('drag');});
   $('previewArea').addEventListener('dragleave',e=>{if(!e.relatedTarget||!$('previewArea').contains?.(e.relatedTarget))$('previewArea').classList.remove('drag');});
