@@ -20,6 +20,7 @@
    - **尼康底图基准自动还原（防滤镜二次叠加）**：上传尼康 `.NEF` / 原片 `.JPG` 时自动解析机内优化校准（含云创配方 `XMP-crd` 与 257 点曲线表），支持在 Web Worker 后台通过 `17³` 逆向 LUT 自动剥离机内彩色云创／Flexible Color 滤镜（**兼容 `HE / HE★` TicoRAW 压缩**）并补偿 `Standard / Auto` 基线，还原至 `ZeroFC` 零基准预览。
    - **纯 JS 原始 RAW（Bayer）解码**：支持离线直接解码尼康 12/14-bit 无损／未压缩 `.NEF` 及 Adobe `.DNG`（无损 JPEG SOF3 / 未压缩），内置 Z 系列机身矩阵与标定 `ZeroFC` 曲线；可在顶部状态栏随时一键切换「自动还原 ZeroFC / 纯原始 RAW (Bayer) / 保留原图内嵌预览」。
 4. 按需开启可选功能：
+   - **相机调色基准**：默认**标准基准（Nikon Standard）**，自动补齐 ZeroFC 平底反差以匹配常规 sRGB 预览；可选 **0 基准（ZeroFC）**用于 Log 还原或柔和反差流程（微调中的「暗部黑位 / 褪色感」设为负值可进一步下压 `0–30/255` 深暗部黑位）。
    - **按当前预览照片色彩优化**：遇到超出尼康参数全局表达能力的强风格 LUT 时，优先贴合当前画面中的色彩分布。
    - **机内质感与微调**（默认折叠）：按需展开，支持微调**曝光补偿**、对比度、暗部黑位／褪色感、**白平衡（色温冷暖／色调绿品）**、**色相偏移**、饱和度偏移，以及写入机内 `.NP3` 的清晰度与锐化（含标准／胶片柔化／街拍硬朗快捷预设）。
 5. 点击 **下载 NP3**，将生成的 `PICCON01.NP3`～`PICCON99.NP3` 放入存储卡 `NIKON/CUSTOMPC/` 目录，在支持 Flexible Color 的尼康机身（如 Z8 C 3.00+、Z6 III、Zf v2.0+、Z50 II、Z5 II 等）「管理优化校准 → 载入/保存 → 复制到照相机」中导入，或导入尼康工坊（NX Studio）使用。
@@ -99,6 +100,7 @@ A single-file, 100% client-side converter that fits `.cube` LUTs into **Nikon Im
    - **Automatic Nikon ZeroFC Baseline Recovery (No Double-Stacking)**: Automatically reads Nikon `.NEF` / camera `.JPG` Picture Control metadata (`XMP-crd` + 257-entry tone curve LUT) and strips baked-in color Imaging Cloud / Flexible Color looks via a `17³` inverse 3D LUT in a background Web Worker (**works even on proprietary Nikon `HE / HE★` TicoRAW NEFs**), plus `Standard / Auto` inverse baseline compensation.
    - **Pure-JS Raw Bayer Decoding**: Decodes 12/14-bit Nikon Lossless/Uncompressed `.NEF` and Adobe `.DNG` (Uncompressed & Lossless JPEG SOF3) directly in the browser with Z-series camera matrices and a calibrated `ZeroFC` shoulder curve; toggle anytime between *Auto ZeroFC*, *Raw Bayer*, and *Embedded Preview*.
 4. Optional controls:
+   - **Camera Grading Baseline**: Defaults to **Standard Baseline (Nikon Standard)** to compensate Nikon ZeroFC flat tone for sRGB LUTs, with a **Zero Baseline (ZeroFC)** option for Log-to-Rec.709 or direct ZeroFC workflows (negative **Black Point / Matte (Black Fade)** values also crush deep `0–30/255` shadows cleanly).
    - **Optimize for Current Photo**: Prioritizes colors present in your current preview image when fitting strong stylistic LUTs that exceed global parameter limits.
    - **In-Camera Texture & Fine-Tune** *(collapsed by default)*: Expand to adjust **Exposure Offset**, Contrast, Black Point / Matte, **White Balance (Temp & Tint)**, **Hue Shift**, and Saturation, or configure in-camera Clarity and Sharpening written directly into the `.NP3` file (`Standard` / `Soft Film` / `Crisp Street` quick presets included).
 5. Click **Download NP3 ↓**, copy the generated `PICCON01.NP3`–`PICCON99.NP3` file into `NIKON/CUSTOMPC/` on your memory card, and import it on Flexible Color-capable Nikon cameras (Z8 FW 3.00+, Z6 III, Zf FW 2.0+, Z50 II, Z5 II, etc.) via **Manage Picture Control → Load/Save → Copy to camera**, or load it directly in **Nikon NX Studio**.
