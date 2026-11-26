@@ -14,6 +14,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 header{max-width:1460px;margin:auto;padding:18px 34px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);gap:16px}
 .brand{display:flex;gap:12px;align-items:center}
 .brand strong{font-size:15px;letter-spacing:.4px}
+.brand .ver{font-size:10px;font-weight:500;color:var(--green);background:#eef3ec;border:1px solid #d5dfd2;border-radius:99px;padding:1px 6px;margin-left:5px;vertical-align:1px;letter-spacing:0}
 .brand small{display:block;color:var(--muted);font-size:11px}
 .mark{font:24px Georgia,serif;background:var(--ink);color:var(--paper);padding:0 7px;line-height:36px;border-radius:4px}
 .mark span{color:#ee9475;font:17px sans-serif}
@@ -66,7 +67,8 @@ h2{font-size:15px;margin:0;font-weight:600}
 .overlay-body .field{margin-top:10px}
 .overlay-file-row{display:flex;align-items:center;gap:7px;margin-top:9px}
 .overlay-pick{flex:1;position:relative;display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;border:1px dashed #c4c8bc;border-radius:5px;background:var(--white);font-size:11px;color:var(--ink);cursor:pointer;transition:border-color .15s,background .15s}
-.overlay-pick:hover{border-color:var(--orange);background:#fbf6f1}
+.overlay-pick:hover,.overlay-box.drag .overlay-pick{border-color:var(--orange);background:#fbf6f1}
+.overlay-box.drag{border-color:var(--orange)}
 .overlay-pick input{position:absolute;width:1px;height:1px;opacity:0}
 .overlay-status{display:block;font-size:10px;color:var(--green);margin-top:6px;overflow-wrap:anywhere;line-height:1.45}
 .overlay-status.muted{color:var(--muted)}
@@ -181,7 +183,7 @@ figcaption>small{font-size:10px;color:var(--muted)}
 </head>
 <body>
 <header>
-  <div class="brand"><span class="mark">N<span>↗</span></span><div><strong>LUT → NP3</strong><small data-i18n="brandSub">Nikon Flexible Color 离线转换器</small></div></div>
+  <div class="brand"><span class="mark">N<span>↗</span></span><div><strong>LUT → NP3 <span class="ver" id="appVersion"></span></strong><small data-i18n="brandSub">Nikon Flexible Color 离线转换器</small></div></div>
   <div class="header-right">
     <span class="private" id="privacyBadge">● 本地离线运行 · 支持内置胶片与相机 RAW 预览</span>
     <div class="lang-switch" id="langSwitch" role="group" aria-label="Language">
@@ -194,7 +196,7 @@ figcaption>small{font-size:10px;color:var(--muted)}
   <div class="workspace">
     <aside class="panel settings">
       <div class="step"><span>01</span><h2 data-i18n="step1">选择风格</h2></div>
-      <label class="drop" id="drop"><span class="plus">＋</span><strong id="fileTitle">选择或拖入 .cube / .NP3 文件</strong><small id="fileInfo">支持 1D / 3D CUBE 与 Flexible Color NP3</small><input id="lutFile" type="file" accept=".cube,.np3,.NP3" aria-label="Choose LUT or NP3 file"></label>
+      <label class="drop" id="drop"><span class="plus">＋</span><strong id="fileTitle">选择或拖入 .cube / .NP3 文件</strong><small id="fileInfo">支持 1D / 3D CUBE 与 Flexible Color NP3</small><input id="lutFile" type="file" aria-label="Choose LUT or NP3 file"></label>
       <label class="field preset-field"><span class="field-row"><span data-i18n="presetLabel">内置胶片预设</span> <em class="preset-count" id="presetCount">55 款</em></span><select id="filmPreset"><option value="" id="presetPlaceholder">选择内置胶片／相机模拟…</option></select></label>
       <p class="preset-desc" id="presetDesc" hidden></p>
       <p class="hint lut-links" id="lutLinks"></p>
@@ -233,9 +235,9 @@ figcaption>small{font-size:10px;color:var(--muted)}
           <span class="overlay-head"><strong data-i18n="overlayTitle">叠加副 LUT / NP3</strong><span class="overlay-badge" id="overlayBadge">未启用</span></span>
         </summary>
         <div class="overlay-body">
-          <label class="field"><span data-i18n="overlayPresetLabel">内置副 LUT</span><select id="overlayPreset"><option value="" id="overlayPlaceholder">不使用副 LUT…</option></select></label>
+          <label class="field"><span data-i18n="overlayPresetLabel">副风格（内置 LUT 或本地 .NP3）</span><select id="overlayPreset"><option value="" id="overlayPlaceholder">不使用副风格…</option><option value="__local__" id="overlayPickOpt">📁 导入本地 .NP3 / .cube 文件…</option></select></label>
           <div class="overlay-file-row">
-            <label class="overlay-pick"><span data-i18n="overlayFileBtn">选择本地 .cube / .NP3</span><input type="file" id="overlayFile" accept=".cube,.np3,.NP3" aria-label="Choose overlay LUT or NP3 file"></label>
+            <label class="overlay-pick" id="overlayDrop"><span data-i18n="overlayFileBtn">＋ 选择或拖入本地 .NP3 / .cube</span><input type="file" id="overlayFile" aria-label="Choose overlay LUT or NP3 file"></label>
             <button type="button" class="reset-btn" id="overlayClear" data-i18n="overlayClearBtn" hidden>清除</button>
           </div>
           <small class="overlay-status muted" id="overlayStatus">未选择副风格（不叠加）</small>
@@ -962,7 +964,7 @@ return {serialize, deserialize};
   else root.LutNP3 = factory(root.NP3Reference, root.NikonModelData);
 })(globalThis, function lutNp3Factory(NP3, MODEL) {
   'use strict';
-  const VERSION = '1.5.0', GUARD_SLACK = {rgb: 4.5, chroma: 3, max: 10}, NEUTRAL_WEIGHT = 2;
+  const VERSION = '1.5.1', GUARD_SLACK = {rgb: 4.5, chroma: 3, max: 10}, NEUTRAL_WEIGHT = 2;
   const clamp = (x, a = 0, b = 1) => (x < a ? a : x > b ? b : x);
   const clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
   const mix = (a, b, t) => a + (b - a) * t;
@@ -6235,9 +6237,10 @@ return {serialize, deserialize};
       overlayTitle:'叠加副 LUT / NP3',
       overlayBadgeOff:'未启用',
       overlayBadgeOn:(pct,m)=>(m==='chain'?'串联 ':'混调 ')+pct+'%',
-      overlayPresetLabel:'内置副 LUT',
-      overlayPlaceholder:'不使用副 LUT…',
-      overlayFileBtn:'选择本地 .cube / .NP3',
+      overlayPresetLabel:'副风格（内置 LUT 或本地 .NP3）',
+      overlayPlaceholder:'不使用副风格…',
+      overlayPickOpt:'📁 导入本地 .NP3 / .cube 文件…',
+      overlayFileBtn:'＋ 选择或拖入本地 .NP3 / .cube',
       overlayClearBtn:'清除',
       overlayStatusIdle:'未选择副风格（不叠加）',
       overlayStatusErr:'副文件读取失败',
@@ -6397,9 +6400,10 @@ return {serialize, deserialize};
       overlayTitle:'Overlay LUT / NP3',
       overlayBadgeOff:'Off',
       overlayBadgeOn:(pct,m)=>(m==='chain'?'Chain ':'Blend ')+pct+'%',
-      overlayPresetLabel:'Built-in Secondary LUT',
-      overlayPlaceholder:'No secondary LUT…',
-      overlayFileBtn:'Load Local .cube / .NP3',
+      overlayPresetLabel:'Secondary Look (Built-in / Local .NP3)',
+      overlayPlaceholder:'No secondary look…',
+      overlayPickOpt:'📁 Load local .NP3 / .cube file…',
+      overlayFileBtn:'＋ Choose or drop .NP3 / .cube',
       overlayClearBtn:'Clear',
       overlayStatusIdle:'No secondary LUT / NP3 selected',
       overlayStatusErr:'Failed to load overlay file',
@@ -7254,6 +7258,7 @@ return {serialize, deserialize};
     if($('presetCount'))$('presetCount').textContent=d.presetCount(P.entries.length);
     if($('presetPlaceholder'))$('presetPlaceholder').textContent=d.presetPlaceholder;
     if($('overlayPlaceholder'))$('overlayPlaceholder').textContent=d.overlayPlaceholder;
+    if($('overlayPickOpt'))$('overlayPickOpt').textContent=d.overlayPickOpt;
     if($('presetName'))$('presetName').placeholder=d.namePlaceholder;
     if($('exportHint'))$('exportHint').innerHTML=d.exportHint;
     if(!busy&&$('progressText'))$('progressText').textContent=d.progStart;
@@ -7424,7 +7429,7 @@ return {serialize, deserialize};
     }
   }
 
-  $('lutFile').addEventListener('change',e=>loadLut(e.target.files[0]));
+  $('lutFile').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';return loadLut(f);});
   $('drop').addEventListener('dragover',e=>{e.preventDefault();$('drop').classList.add('drag');});
   $('drop').addEventListener('dragleave',()=> $('drop').classList.remove('drag'));
   $('drop').addEventListener('drop',e=>{e.preventDefault();$('drop').classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&!isLookFileName(f.name))return loadPhoto(f);loadLut(f);});
@@ -7484,6 +7489,11 @@ return {serialize, deserialize};
   }
   if($('overlayPreset'))$('overlayPreset').addEventListener('change',()=>{
     const id=$('overlayPreset').value;
+    if(id==='__local__'){
+      $('overlayPreset').value=overlayPreset?overlayPreset.id:'';
+      $('overlayFile')?.click?.();
+      return;
+    }
     if(!id){clearOverlay(true);return;}
     try{
       const {metadata,cube:ovCube}=P.get(id);
@@ -7494,7 +7504,12 @@ return {serialize, deserialize};
       else updateControls();
     }catch(e){overlayError=e?.message||String(e);renderOverlayUI();setStatusError(e);}
   });
-  if($('overlayFile'))$('overlayFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;return loadOverlayFile(f);});
+  if($('overlayFile'))$('overlayFile').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(!f)return;return loadOverlayFile(f);});
+  if($('overlayDetails')){
+    $('overlayDetails').addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();$('overlayDetails').classList.add('drag');});
+    $('overlayDetails').addEventListener('dragleave',e=>{if(!e.relatedTarget||!$('overlayDetails').contains?.(e.relatedTarget))$('overlayDetails').classList.remove('drag');});
+    $('overlayDetails').addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();$('overlayDetails').classList.remove('drag');const f=e.dataTransfer?.files?.[0];if(f)return loadOverlayFile(f);});
+  }
   if($('overlayClear'))$('overlayClear').addEventListener('click',()=>clearOverlay(true));
   if($('overlayMode'))$('overlayMode').addEventListener('change',()=>{renderOverlayUI();if(ready()&&overlayCube)settingsChanged();});
   if($('overlayStrength'))$('overlayStrength').addEventListener('input',()=>{renderOverlayUI();if(ready()&&overlayCube)settingsChanged();});
@@ -7977,6 +7992,7 @@ return {serialize, deserialize};
     }catch(e){setStatusError(e);}
   });
 
+  if($('appVersion'))$('appVersion').textContent='v'+C.VERSION;
   if($('baseline')&&!$('baseline').value)$('baseline').value='standard';
   sampleChart();
   applyLanguage(lang);
