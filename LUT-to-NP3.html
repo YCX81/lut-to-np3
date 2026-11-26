@@ -242,8 +242,9 @@ figcaption>small{font-size:10px;color:var(--muted)}
           </div>
           <small class="overlay-status muted" id="overlayStatus">未选择副风格（不叠加）</small>
           <label class="field"><span data-i18n="overlayModeLabel">叠加方式</span><select id="overlayMode">
-            <option value="blend" data-i18n="ov_blend" selected>平行混调（推荐 · 不叠双倍反差）</option>
-            <option value="chain" data-i18n="ov_chain">前后串联（主 LUT → 副 LUT）</option>
+            <option value="blend" data-i18n="ov_blend" selected>平行混调（主/副按比例混合，不叠双反差）</option>
+            <option value="chain" data-i18n="ov_chain">串联：主 → 副（先主风格，再叠副风格）</option>
+            <option value="prechain" data-i18n="ov_prechain">串联：副 → 主（先副底色/NP3，再叠主 LUT）</option>
           </select></label>
           <label class="field"><span data-i18n="overlayStrengthLabel">副 LUT 占比</span> <output id="overlayStrengthVal">35%</output><input type="range" id="overlayStrength" min="0" max="100" value="35"></label>
           <p class="hint overlay-hint" id="overlayHint"></p>
@@ -964,7 +965,7 @@ return {serialize, deserialize};
   else root.LutNP3 = factory(root.NP3Reference, root.NikonModelData);
 })(globalThis, function lutNp3Factory(NP3, MODEL) {
   'use strict';
-  const VERSION = '1.5.1', GUARD_SLACK = {rgb: 4.5, chroma: 3, max: 10}, NEUTRAL_WEIGHT = 2;
+  const VERSION = '1.5.2', GUARD_SLACK = {rgb: 4.5, chroma: 3, max: 10}, NEUTRAL_WEIGHT = 2;
   const clamp = (x, a = 0, b = 1) => (x < a ? a : x > b ? b : x);
   const clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
   const mix = (a, b, t) => a + (b - a) * t;
@@ -1132,7 +1133,7 @@ return {serialize, deserialize};
     if (!['zerofc', 'standard'].includes(o.baseline)) throw Error('调色基准设置无效。');
     if (!['full', 'legal'].includes(o.range) || !Number.isFinite(o.exposure) || Math.abs(o.exposure) > 6 || !Number.isFinite(o.strength) || o.strength < 0 || o.strength > 1) throw Error('曝光、范围或强度设置无效。');
     if (o.input === 'custom' && !o.preLut) throw Error('其它 Log 需要前置 CUBE：sRGB → 目标 Log／色域。');
-    if (!['blend', 'chain'].includes(o.overlayMode)) throw Error('副 LUT 叠加模式无效。');
+    if (!['blend', 'chain', 'prechain'].includes(o.overlayMode)) throw Error('副 LUT 叠加模式无效。');
     if (!Number.isFinite(o.overlayStrength) || o.overlayStrength < 0 || o.overlayStrength > 1) throw Error('副 LUT 强度设置无效。');
     if (o.overlayCube != null && (typeof o.overlayCube !== 'object' || !Number.isInteger(o.overlayCube.size) || o.overlayCube.size < 2 || !o.overlayCube.data || !Array.isArray(o.overlayCube.min) || !Array.isArray(o.overlayCube.max))) throw Error('副 LUT 数据无效。');
     return o;
@@ -1141,23 +1142,34 @@ return {serialize, deserialize};
   function makeTarget(cube, opts = {}) {
     const o = settings(opts); const stats = {samples: 0, inputClipped: 0, outputClipped: 0};
     const hasOverlay = Boolean(o.overlayCube && o.overlayStrength > 0);
+    const isPreChain = hasOverlay && o.overlayMode === 'prechain';
     const fn = (rgb, record = false) => {
       const baseRgb = o.baseline === 'standard' ? zeroFcToStandardRgb(rgb) : rgb;
-      let input = baseRgb;
+      let stageRgb = baseRgb, clipped = false, ovInputClipped = false;
+      if (isPreChain) {
+        if (record && baseRgb.some((v, i) => v < o.overlayCube.min[i] || v > o.overlayCube.max[i])) ovInputClipped = true;
+        const outPre = sample(o.overlayCube, baseRgb);
+        if (outPre[0] < 0 || outPre[0] > 1 || outPre[1] < 0 || outPre[1] > 1 || outPre[2] < 0 || outPre[2] > 1) clipped = true;
+        stageRgb = [
+          mix(baseRgb[0], clamp01(outPre[0]), o.overlayStrength),
+          mix(baseRgb[1], clamp01(outPre[1]), o.overlayStrength),
+          mix(baseRgb[2], clamp01(outPre[2]), o.overlayStrength),
+        ];
+      }
+      let input = stageRgb;
       if (LOG_ENCODE[o.input]) {
-        let lin = baseRgb.map(srgbDecode); if (o.highlights === 'expand') { const k = expandGain(lin); lin = lin.map(x => x * k); }
+        let lin = stageRgb.map(srgbDecode); if (o.highlights === 'expand') { const k = expandGain(lin); lin = lin.map(x => x * k); }
         const gamut = o.input === 'flog2c' ? TO_FGAMUTC : TO2020;
         input = matrix(gamut, lin.map(x => x * 2 ** o.exposure)).map(v => LOG_ENCODE[o.input](Math.max(0, v)));
         if (o.range === 'legal') input = input.map(x => (x * 1023 - 64) / 876);
-      } else if (o.input === 'rec709-g24') input = baseRgb.map(x => Math.max(0, srgbDecode(x)) ** (1 / 2.4));
-      else if (o.input === 'rec709-oetf') input = baseRgb.map(x => rec709Encode(srgbDecode(x)));
-      else if (o.input === 'custom') input = sample(o.preLut, baseRgb);
+      } else if (o.input === 'rec709-g24') input = stageRgb.map(x => Math.max(0, srgbDecode(x)) ** (1 / 2.4));
+      else if (o.input === 'rec709-oetf') input = stageRgb.map(x => rec709Encode(srgbDecode(x)));
+      else if (o.input === 'custom') input = sample(o.preLut, stageRgb);
       let output = sample(cube, input);
-      let clipped = output.some(x => x < 0 || x > 1);
+      if (output.some(x => x < 0 || x > 1)) clipped = true;
       if (o.output === 'rec709-g24') output = output.map(x => srgbEncode(Math.max(0, x) ** 2.4));
       else if (o.output === 'rec709-oetf') output = output.map(x => srgbEncode(rec709Decode(Math.max(0, x))));
-      let ovInputClipped = false;
-      if (hasOverlay) {
+      if (hasOverlay && !isPreChain) {
         const clampedA = [clamp01(output[0]), clamp01(output[1]), clamp01(output[2])];
         const ovIn = o.overlayMode === 'chain' ? clampedA : baseRgb;
         if (record && ovIn.some((v, i) => v < o.overlayCube.min[i] || v > o.overlayCube.max[i])) ovInputClipped = true;
@@ -3908,12 +3920,19 @@ return {serialize, deserialize};
       }
       const raw = new Float64Array(257);
       const tv = new DataView(tc.buffer, tc.byteOffset, tc.byteLength);
-      for (let i = 0; i < 257; i++) raw[i] = clamp01(tv.getUint16(64 + i * 2, false) / 32767);
-      if (validPts) {
+      let rawMax = 0, rawValid = true;
+      for (let i = 0; i < 257; i++) {
+        const u16 = tv.getUint16(64 + i * 2, false);
+        if (u16 > 32767) { rawValid = false; break; }
+        if (u16 > rawMax) rawMax = u16;
+        raw[i] = u16 / 32767;
+      }
+      const hasCustomRange = tc[2] !== 0 || tc[3] !== 255 || tc[4] !== 0 || tc[5] !== 255 || tc[6] !== 1 || tc[7] !== 0;
+      if (validPts && !(hasCustomRange && rawValid && rawMax > 0)) {
         const sp = naturalSpline(pts.map(q => q.x), pts.map(q => q.y));
         params.curvePoints = pts;
         params.curve = X17.map(x => clamp01(sp(x) / 255));
-      } else {
+      } else if (rawValid) {
         params.curveRaw = raw;
         params.curve = X17.map(x => curveAt(raw, x / 255));
       }
@@ -6236,7 +6255,7 @@ return {serialize, deserialize};
       strengthLabel:'效果强度',
       overlayTitle:'叠加副 LUT / NP3',
       overlayBadgeOff:'未启用',
-      overlayBadgeOn:(pct,m)=>(m==='chain'?'串联 ':'混调 ')+pct+'%',
+      overlayBadgeOn:(pct,m)=>m==='prechain'?'副→主 '+pct+'%':m==='chain'?'主→副 '+pct+'%':'主'+(100-pct)+'/副'+pct,
       overlayPresetLabel:'副风格（内置 LUT 或本地 .NP3）',
       overlayPlaceholder:'不使用副风格…',
       overlayPickOpt:'📁 导入本地 .NP3 / .cube 文件…',
@@ -6245,15 +6264,18 @@ return {serialize, deserialize};
       overlayStatusIdle:'未选择副风格（不叠加）',
       overlayStatusErr:'副文件读取失败',
       overlayModeLabel:'叠加方式',
-      ov_blend:'平行混调（推荐 · 不叠双倍反差）',
-      ov_chain:'前后串联（主风格 → 副风格）',
+      ov_blend:'平行混调（主/副按比例混合，不叠双反差）',
+      ov_chain:'串联：主 → 副（先主风格，再叠副风格）',
+      ov_prechain:'串联：副 → 主（先副底色/NP3，再叠主 LUT）',
       overlayStrengthLabel:'副风格占比',
-      overlayHintBlend:'原图分别走主/副风格后按比例融合，支持 .cube 与 Flexible Color .NP3 互叠，不叠双倍反差；建议 20%–45%。',
-      overlayHintChain:'先套主风格再套副风格并按占比混回；反差与染色更浓，建议 15%–35%。',
+      overlayHintBlend:'主与副按 (100-X)% : X% 混合（不叠双倍反差，建议 20%–45%）。注意：拉到 100% 时主风格占比为 0%。',
+      overlayHintBlendFull:'⚠ 当前为平行混调且副占比极高（主风格仅占极少比例甚至 0%）；如需两层完整叠加，请改选「串联：副 → 主」或「串联：主 → 副」。',
+      overlayHintChain:'先完整套用主风格，再把结果送入副风格并按占比叠回；两层完整叠加时可拉高占比。',
+      overlayHintPrechain:'先套用副风格（如机内云创 .NP3 底色），再完整叠加主 LUT；100% 时与「原图预览 + 主 LUT」完全一致。',
       exportMergedCubeBtn:'导出融合 33³ .cube ↓',
       exportSingleCubeBtn:'导出等效 33³ .cube ↓',
       stMergedCubeExported:n=>'已导出 33³ LUT：'+n,
-      targetAppliedOverlay:(nm,pct)=>'已套用目标风格 + '+pct+'% '+nm,
+      targetAppliedOverlay:(nm,pct,m)=>m==='prechain'?'串联：副 '+pct+'% '+nm+' → 主':m==='chain'?'串联：主 → 副 '+pct+'% '+nm:'混调：主 '+(100-pct)+'% + '+pct+'% '+nm,
       sceneTitle:'按当前预览照片色彩优化',
       sceneSub:'强风格超纲时优先贴合右侧照片中的主要色彩',
       refitBtn:'重新拟合',
@@ -6399,7 +6421,7 @@ return {serialize, deserialize};
       strengthLabel:'Strength',
       overlayTitle:'Overlay LUT / NP3',
       overlayBadgeOff:'Off',
-      overlayBadgeOn:(pct,m)=>(m==='chain'?'Chain ':'Blend ')+pct+'%',
+      overlayBadgeOn:(pct,m)=>m==='prechain'?'B→A '+pct+'%':m==='chain'?'A→B '+pct+'%':'A'+(100-pct)+'/B'+pct,
       overlayPresetLabel:'Secondary Look (Built-in / Local .NP3)',
       overlayPlaceholder:'No secondary look…',
       overlayPickOpt:'📁 Load local .NP3 / .cube file…',
@@ -6408,15 +6430,18 @@ return {serialize, deserialize};
       overlayStatusIdle:'No secondary LUT / NP3 selected',
       overlayStatusErr:'Failed to load overlay file',
       overlayModeLabel:'Composition Mode',
-      ov_blend:'Parallel Blend (Recommended · No Double Contrast)',
-      ov_chain:'Serial Chain (Primary → Secondary)',
+      ov_blend:'Parallel Blend (Mix A & B, No Double Contrast)',
+      ov_chain:'Serial Chain: Primary → Secondary (A → B)',
+      ov_prechain:'Serial Chain: Secondary → Primary (B → A)',
       overlayStrengthLabel:'Overlay Weight',
-      overlayHintBlend:'Applies primary and secondary looks independently and mixes them (supports .cube and Flexible Color .NP3 without doubling contrast). 20%–45% recommended.',
-      overlayHintChain:'Feeds primary look output into secondary look and blends back. Stronger contrast/tint; 15%–35% recommended.',
+      overlayHintBlend:'Mixes Primary (100-X)% with Secondary X% (20%–45% recommended). Note: 100% replaces Primary completely (0% A).',
+      overlayHintBlendFull:'⚠ Parallel Blend at 90%–100% nearly replaces the Primary look. To stack both layers fully, switch to Serial Chain (B → A or A → B).',
+      overlayHintChain:'Applies Primary first, then feeds its output into Secondary and blends by weight.',
+      overlayHintPrechain:'Applies Secondary first (e.g., an in-camera .NP3 base), then stacks Primary LUT on top — matches Embedded Preview + Primary LUT at 100%.',
       exportMergedCubeBtn:'Export Merged 33³ .cube ↓',
       exportSingleCubeBtn:'Export 33³ .cube ↓',
       stMergedCubeExported:n=>'Exported 33³ LUT: '+n,
-      targetAppliedOverlay:(nm,pct)=>'Target Look + '+pct+'% '+nm,
+      targetAppliedOverlay:(nm,pct,m)=>m==='prechain'?'Chain: '+pct+'% '+nm+' → Primary':m==='chain'?'Chain: Primary → '+pct+'% '+nm:'Blend: '+(100-pct)+'% A + '+pct+'% '+nm,
       sceneTitle:'Optimize for Current Photo',
       sceneSub:'Prioritize colors present in the preview image for strong stylistic LUTs',
       refitBtn:'Refit Now',
@@ -6662,9 +6687,13 @@ return {serialize, deserialize};
     sceneSamplesCache={key,samples};
     return samples;
   }
+  function currentOverlayMode(){
+    const v=$('overlayMode')?.value;
+    return v==='chain'||v==='prechain'?v:'blend';
+  }
   function opts(includeScene=true){
     const sceneSamples=(includeScene&&$('sceneWeight')?.checked)?getSceneSamples():undefined;
-    const overlayMode=$('overlayMode')?.value==='chain'?'chain':'blend';
+    const overlayMode=currentOverlayMode();
     const overlayStrength=$('overlayStrength')?Number($('overlayStrength').value)/100:0.35;
     return {input:$('inputSpace').value,output:$('outputSpace').value,baseline:currentBaseline(),range:$('range').value,exposure:Number($('exposure').value),highlights:$('highlights').value||'expand',strength:Number($('strength').value)/100,preLut,overlayCube,overlayMode,overlayStrength,sceneSamples};
   }
@@ -6674,10 +6703,10 @@ return {serialize, deserialize};
   }
   function renderOverlayUI(){
     const d=T();
-    const mode=$('overlayMode')?.value==='chain'?'chain':'blend';
+    const mode=currentOverlayMode();
     const pct=$('overlayStrength')?Math.round(Number($('overlayStrength').value)||0):35;
     if($('overlayStrengthVal')){$('overlayStrengthVal').value=pct+'%';$('overlayStrengthVal').textContent=pct+'%';}
-    if($('overlayHint'))$('overlayHint').textContent=mode==='chain'?d.overlayHintChain:d.overlayHintBlend;
+    if($('overlayHint'))$('overlayHint').textContent=mode==='prechain'?d.overlayHintPrechain:mode==='chain'?d.overlayHintChain:(overlayCube&&pct>=90?d.overlayHintBlendFull:d.overlayHintBlend);
     if($('overlayBadge')){
       if(overlayCube){
         $('overlayBadge').textContent=d.overlayBadgeOn(pct,mode);
@@ -6717,8 +6746,8 @@ return {serialize, deserialize};
     if(!hasTarget){$('targetCaption').textContent=d.targetWait;return;}
     const pct=$('overlayStrength')?Math.round(Number($('overlayStrength').value)||0):35;
     if(overlayCube&&pct>0){
-      const nm=overlayDisplayName().replace(/\.cube$/i,'');
-      $('targetCaption').textContent=d.targetAppliedOverlay(nm,pct);
+      const nm=overlayDisplayName().replace(/\.(cube|np3)$/i,'');
+      $('targetCaption').textContent=d.targetAppliedOverlay(nm,pct,currentOverlayMode());
     }else{
       $('targetCaption').textContent=d.targetApplied;
     }
@@ -7966,11 +7995,11 @@ return {serialize, deserialize};
       let title,fileName;
       if(overlayCube){
         const pct=Math.round((o.overlayStrength||0)*100);
-        const modeTag=o.overlayMode==='chain'?'chain':'blend';
+        const modeTag=o.overlayMode==='prechain'?'prechain':o.overlayMode==='chain'?'chain':'blend';
         const ovRaw=overlayPreset?overlayPreset.cameraName:overlayName;
         const ovStem=sanitizeStem(ovRaw,'Overlay');
-        title=(mainStem+' + '+pct+'% '+ovStem+' ('+modeTag+')').slice(0,64);
-        fileName=mainStem+'+'+ovStem+'_'+modeTag+pct+'.cube';
+        title=(o.overlayMode==='prechain'?(pct+'% '+ovStem+' -> '+mainStem):(mainStem+' + '+pct+'% '+ovStem+' ('+modeTag+')')).slice(0,64);
+        fileName=(o.overlayMode==='prechain'?(ovStem+'_'+pct+'to'+mainStem):(mainStem+'+'+ovStem+'_'+modeTag+pct))+'.cube';
       }else{
         title=mainStem.slice(0,64);
         fileName=mainStem+'.cube';
