@@ -965,7 +965,7 @@ return {serialize, deserialize};
   else root.LutNP3 = factory(root.NP3Reference, root.NikonModelData);
 })(globalThis, function lutNp3Factory(NP3, MODEL) {
   'use strict';
-  const VERSION = '1.5.2', GUARD_SLACK = {rgb: 4.5, chroma: 3, max: 10}, NEUTRAL_WEIGHT = 2;
+  const VERSION = '1.5.3', GUARD_SLACK = {rgb: 4.5, chroma: 3, max: 10}, NEUTRAL_WEIGHT = 2;
   const clamp = (x, a = 0, b = 1) => (x < a ? a : x > b ? b : x);
   const clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
   const mix = (a, b, t) => a + (b - a) * t;
@@ -1143,12 +1143,20 @@ return {serialize, deserialize};
     const o = settings(opts); const stats = {samples: 0, inputClipped: 0, outputClipped: 0};
     const hasOverlay = Boolean(o.overlayCube && o.overlayStrength > 0);
     const isPreChain = hasOverlay && o.overlayMode === 'prechain';
+    const useZfcInput = !o.inputIsSrgb;
+    const sampleLook = (cObj, baseIn, rawZfc) => {
+      if (useZfcInput && cObj.zfcData) {
+        return sample({size: cObj.size, kind: 3, min: cObj.min, max: cObj.max, data: cObj.zfcData}, rawZfc);
+      }
+      return sample(cObj, baseIn);
+    };
     const fn = (rgb, record = false) => {
       const baseRgb = o.baseline === 'standard' ? zeroFcToStandardRgb(rgb) : rgb;
       let stageRgb = baseRgb, clipped = false, ovInputClipped = false;
       if (isPreChain) {
-        if (record && baseRgb.some((v, i) => v < o.overlayCube.min[i] || v > o.overlayCube.max[i])) ovInputClipped = true;
-        const outPre = sample(o.overlayCube, baseRgb);
+        const preIn = (useZfcInput && o.overlayCube.zfcData) ? rgb : baseRgb;
+        if (record && preIn.some((v, i) => v < o.overlayCube.min[i] || v > o.overlayCube.max[i])) ovInputClipped = true;
+        const outPre = sampleLook(o.overlayCube, baseRgb, rgb);
         if (outPre[0] < 0 || outPre[0] > 1 || outPre[1] < 0 || outPre[1] > 1 || outPre[2] < 0 || outPre[2] > 1) clipped = true;
         stageRgb = [
           mix(baseRgb[0], clamp01(outPre[0]), o.overlayStrength),
@@ -1156,24 +1164,35 @@ return {serialize, deserialize};
           mix(baseRgb[2], clamp01(outPre[2]), o.overlayStrength),
         ];
       }
-      let input = stageRgb;
-      if (LOG_ENCODE[o.input]) {
-        let lin = stageRgb.map(srgbDecode); if (o.highlights === 'expand') { const k = expandGain(lin); lin = lin.map(x => x * k); }
-        const gamut = o.input === 'flog2c' ? TO_FGAMUTC : TO2020;
-        input = matrix(gamut, lin.map(x => x * 2 ** o.exposure)).map(v => LOG_ENCODE[o.input](Math.max(0, v)));
-        if (o.range === 'legal') input = input.map(x => (x * 1023 - 64) / 876);
-      } else if (o.input === 'rec709-g24') input = stageRgb.map(x => Math.max(0, srgbDecode(x)) ** (1 / 2.4));
-      else if (o.input === 'rec709-oetf') input = stageRgb.map(x => rec709Encode(srgbDecode(x)));
-      else if (o.input === 'custom') input = sample(o.preLut, stageRgb);
-      let output = sample(cube, input);
+      let input = stageRgb, output;
+      if (!isPreChain && o.input === 'srgb' && useZfcInput && cube.zfcData) {
+        input = rgb;
+        output = sampleLook(cube, stageRgb, rgb);
+      } else {
+        if (LOG_ENCODE[o.input]) {
+          let lin = stageRgb.map(srgbDecode); if (o.highlights === 'expand') { const k = expandGain(lin); lin = lin.map(x => x * k); }
+          const gamut = o.input === 'flog2c' ? TO_FGAMUTC : TO2020;
+          input = matrix(gamut, lin.map(x => x * 2 ** o.exposure)).map(v => LOG_ENCODE[o.input](Math.max(0, v)));
+          if (o.range === 'legal') input = input.map(x => (x * 1023 - 64) / 876);
+        } else if (o.input === 'rec709-g24') input = stageRgb.map(x => Math.max(0, srgbDecode(x)) ** (1 / 2.4));
+        else if (o.input === 'rec709-oetf') input = stageRgb.map(x => rec709Encode(srgbDecode(x)));
+        else if (o.input === 'custom') input = sample(o.preLut, stageRgb);
+        output = sample(cube, input);
+      }
       if (output.some(x => x < 0 || x > 1)) clipped = true;
       if (o.output === 'rec709-g24') output = output.map(x => srgbEncode(Math.max(0, x) ** 2.4));
       else if (o.output === 'rec709-oetf') output = output.map(x => srgbEncode(rec709Decode(Math.max(0, x))));
       if (hasOverlay && !isPreChain) {
         const clampedA = [clamp01(output[0]), clamp01(output[1]), clamp01(output[2])];
-        const ovIn = o.overlayMode === 'chain' ? clampedA : baseRgb;
-        if (record && ovIn.some((v, i) => v < o.overlayCube.min[i] || v > o.overlayCube.max[i])) ovInputClipped = true;
-        const outB = sample(o.overlayCube, ovIn);
+        let outB;
+        if (o.overlayMode === 'chain') {
+          if (record && clampedA.some((v, i) => v < o.overlayCube.min[i] || v > o.overlayCube.max[i])) ovInputClipped = true;
+          outB = sample(o.overlayCube, clampedA);
+        } else {
+          const ovIn = (useZfcInput && o.overlayCube.zfcData) ? rgb : baseRgb;
+          if (record && ovIn.some((v, i) => v < o.overlayCube.min[i] || v > o.overlayCube.max[i])) ovInputClipped = true;
+          outB = sampleLook(o.overlayCube, baseRgb, rgb);
+        }
         if (outB[0] < 0 || outB[0] > 1 || outB[1] < 0 || outB[1] > 1 || outB[2] < 0 || outB[2] > 1) clipped = true;
         output = [
           mix(clampedA[0], clamp01(outB[0]), o.overlayStrength),
@@ -3814,18 +3833,39 @@ return {serialize, deserialize};
     return {bytes: b.length, format: '0310', entries: entries.size, hasCurve: !!curve};
   }
   function encodeNP3(params, name) { const bytes = NP3.serialize(np3Options(params, name)); validateNP3(bytes); return bytes; }
+  // NX Studio libPCEngine measured BT.601 Y' delta tables (1/1000 units at 17 knots) for Flexible Color
+  // basic tone sliders (0x1900..0x1d00 when no custom 0x0002 tone curve is present).
+  const BASIC_TONE_TAB = {
+    c: [-8, -22, -49, -71, -79, -76, -58, -30, -3, 26, 47, 53, 77, 58, 48, 24, 4],
+    hlP50: [0, 0, 0, 0, 0, 0, 0, 5, 14, 30, 40, 39, 46, 36, 30, 17, 3],
+    hlP100: [0, 0, 0, 0, 0, 0, 1, 9, 27, 59, 79, 79, 91, 67, 57, 33, 6],
+    hlN50: [0, 0, 0, 0, 0, 0, 0, -2, -6, -15, -24, -30, -42, -44, -43, -41, -35],
+    hlN100: [0, 0, 0, 0, 0, 0, 0, -3, -13, -29, -47, -59, -84, -87, -87, -84, -76],
+    shP50: [12, 26, 43, 51, 53, 52, 49, 39, 29, 15, 7, 1, 0, 0, 0, 0, 0],
+    shP100: [23, 51, 86, 101, 106, 105, 97, 78, 57, 30, 14, 1, 0, 0, 0, 0, 0],
+    shN50: [-11, -24, -41, -50, -53, -51, -44, -30, -19, -9, -3, 0, 0, 0, 0, 0, 0],
+    shN100: [-20, -47, -82, -100, -106, -102, -87, -59, -39, -18, -6, 0, 0, 0, 0, 0, 0],
+    wlN50: [-2, -5, -10, -15, -19, -24, -29, -35, -38, -43, -47, -44, -60, -63, -60, -47, -11],
+    wlN100: [-4, -10, -19, -29, -38, -48, -58, -69, -77, -87, -94, -90, -119, -129, -126, -100, -24],
+    blP50: [21, 40, 53, 51, 47, 43, 39, 35, 32, 28, 24, 16, 15, 10, 8, 4, 1],
+    blP100: [41, 80, 106, 102, 95, 87, 79, 70, 64, 56, 48, 33, 29, 19, 16, 9, 2],
+  };
   function approxBasicToneCurve(bt) {
     const c = (bt.contrast || 0) / 100, hl = (bt.highlights || 0) / 100, sh = (bt.shadows || 0) / 100;
     const wl = (bt.whiteLevel || 0) / 100, bl = (bt.blackLevel || 0) / 100;
-    const out = X17.map(x => {
+    const pw = (t50, t100, a, i) => (a <= 0.5 ? t50[i] * (a * 2) : t50[i] + (t100[i] - t50[i]) * ((a - 0.5) * 2)) / 1000;
+    const out = X17.map((x, i) => {
       const u = x / 255;
-      let y = u;
-      if (c) y += -c * 0.14 * Math.sin(2 * Math.PI * u);
-      if (sh) y += sh * 0.24 * Math.pow(1 - u, 1.8) * Math.pow(u, 0.45) * 2.2;
-      if (hl) y += hl * 0.24 * Math.pow(u, 1.8) * Math.pow(1 - u, 0.45) * 2.2;
-      if (bl) y += bl * 0.16 * Math.pow(1 - u, 2.4);
-      if (wl) y += wl * 0.16 * Math.pow(u, 2.4);
-      return clamp01(y);
+      let dy = c * BASIC_TONE_TAB.c[i] / 1000;
+      if (hl > 0) dy += pw(BASIC_TONE_TAB.hlP50, BASIC_TONE_TAB.hlP100, hl, i);
+      else if (hl < 0) dy += pw(BASIC_TONE_TAB.hlN50, BASIC_TONE_TAB.hlN100, -hl, i);
+      if (sh > 0) dy += pw(BASIC_TONE_TAB.shP50, BASIC_TONE_TAB.shP100, sh, i);
+      else if (sh < 0) dy += pw(BASIC_TONE_TAB.shN50, BASIC_TONE_TAB.shN100, -sh, i);
+      if (wl > 0) { const w = wl * 0.275; dy += Math.min(1, u / (1 - w)) - u; }
+      else if (wl < 0) dy += pw(BASIC_TONE_TAB.wlN50, BASIC_TONE_TAB.wlN100, -wl, i);
+      if (bl > 0) dy += pw(BASIC_TONE_TAB.blP50, BASIC_TONE_TAB.blP100, bl, i);
+      else if (bl < 0) { const b = (-bl) * 0.275; dy += Math.max(0, (u - b) / (1 - b)) - u; }
+      return clamp01(u + dy);
     });
     for (let i = 1; i < out.length; i++) if (out[i] < out[i - 1]) out[i] = out[i - 1];
     return out;
@@ -3947,7 +3987,9 @@ return {serialize, deserialize};
     const size = Number.isInteger(opts.size) && opts.size >= 2 && opts.size <= 65 ? opts.size : 33;
     const space = opts.space === 'zerofc' ? 'zerofc' : 'standard';
     const rend = makeRenderer(parsed.params);
-    const data = new Float64Array(size * size * size * 3);
+    const len = size * size * size * 3;
+    const data = new Float64Array(len);
+    const zfcData = new Float32Array(len);
     const inv = 1 / (size - 1);
     let p = 0;
     for (let b = 0; b < size; b++) {
@@ -3956,8 +3998,11 @@ return {serialize, deserialize};
         const gf = g * inv;
         for (let r = 0; r < size; r++) {
           const rgb = [r * inv, gf, bf];
-          const out = rend(space === 'standard' ? standardToZeroFcRgb(rgb) : rgb);
-          data[p++] = out[0]; data[p++] = out[1]; data[p++] = out[2];
+          const zfcOut = rend(rgb);
+          zfcData[p] = zfcOut[0]; zfcData[p + 1] = zfcOut[1]; zfcData[p + 2] = zfcOut[2];
+          const out = space === 'standard' ? rend(standardToZeroFcRgb(rgb)) : zfcOut;
+          data[p] = out[0]; data[p + 1] = out[1]; data[p + 2] = out[2];
+          p += 3;
         }
       }
     }
@@ -3968,6 +4013,7 @@ return {serialize, deserialize};
       min: [0, 0, 0],
       max: [1, 1, 1],
       data,
+      zfcData,
       sourceFormat: 'np3',
       np3Meta: {
         name: parsed.name,
@@ -7365,10 +7411,12 @@ return {serialize, deserialize};
   function getTargetLut(){
     if(!ready())return null;
     const o=opts(false);
-    const effBaseline=(o.baseline==='standard'&&isSrcZeroFc())?'standard':'zerofc';
-    const key=[lutVersion,preVersion,overlayVersion,o.input,o.output,effBaseline,o.range,o.exposure,o.highlights,o.strength,o.overlayMode,o.overlayStrength].join('|');
+    const zfcSrc=isSrcZeroFc();
+    const effBaseline=(o.baseline==='standard'&&zfcSrc)?'standard':'zerofc';
+    const inputIsSrgb=!zfcSrc;
+    const key=[lutVersion,preVersion,overlayVersion,o.input,o.output,effBaseline,inputIsSrgb?'s':'z',o.range,o.exposure,o.highlights,o.strength,o.overlayMode,o.overlayStrength].join('|');
     if(targetLutCache&&targetLutCache.key===key)return targetLutCache.lut;
-    const fn=C.makeTarget(cube,{...o,baseline:effBaseline});
+    const fn=C.makeTarget(cube,{...o,baseline:effBaseline,inputIsSrgb});
     const lut=typeof D.bakeLut3D==='function'?D.bakeLut3D(fn,33):{fn};
     targetLutCache={key,lut};
     return lut;
@@ -8004,7 +8052,7 @@ return {serialize, deserialize};
         title=mainStem.slice(0,64);
         fileName=mainStem+'.cube';
       }
-      const fn=C.makeTarget(cube,{...o,baseline:'zerofc'});
+      const fn=C.makeTarget(cube,{...o,baseline:'zerofc',inputIsSrgb:true});
       const text=C.cubeText(33,fn,title);
       save(text,'text/plain;charset=utf-8',fileName);
       setStatusKey('stMergedCubeExported',fileName);
