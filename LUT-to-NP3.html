@@ -53,6 +53,27 @@ h2{font-size:15px;margin:0;font-weight:600}
 .check-field input{margin:2px 0 0;accent-color:var(--orange);cursor:pointer}
 .check-field strong{display:block;font-size:11px;color:var(--ink)}
 .check-field small{display:block;font-size:10px;color:var(--muted);line-height:1.45;margin-top:2px}
+.overlay-box{margin-top:13px;border:1px solid #d9dfd4;border-radius:6px;background:#f7f9f4;overflow:hidden}
+.overlay-box summary{list-style:none;padding:9px 10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+.overlay-box summary::-webkit-details-marker{display:none}
+.overlay-head{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%}
+.overlay-head strong{font-size:11.5px;color:var(--ink)}
+.overlay-head strong::before{content:"▸ ";color:var(--orange);font-size:11px}
+.overlay-box[open] .overlay-head strong::before{content:"▾ "}
+.overlay-badge{font-size:10px;padding:1px 7px;border-radius:99px;background:#e9ece4;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.overlay-badge.active{background:#f7e5dc;color:var(--orange);font-weight:600}
+.overlay-body{padding:0 10px 11px;border-top:1px solid #e1e6dc}
+.overlay-body .field{margin-top:10px}
+.overlay-file-row{display:flex;align-items:center;gap:7px;margin-top:9px}
+.overlay-pick{flex:1;position:relative;display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;border:1px dashed #c4c8bc;border-radius:5px;background:var(--white);font-size:11px;color:var(--ink);cursor:pointer;transition:border-color .15s,background .15s}
+.overlay-pick:hover{border-color:var(--orange);background:#fbf6f1}
+.overlay-pick input{position:absolute;width:1px;height:1px;opacity:0}
+.overlay-status{display:block;font-size:10px;color:var(--green);margin-top:6px;overflow-wrap:anywhere;line-height:1.45}
+.overlay-status.muted{color:var(--muted)}
+.overlay-status.error{color:#b73521}
+.overlay-hint{margin-top:6px;font-size:10px;line-height:1.5}
+.overlay-export{margin-top:10px;border-color:#cbd3c8;background:var(--white);color:var(--ink)}
+.overlay-export:hover:not(:disabled){border-color:var(--orange);color:var(--orange)}
 .primary{background:var(--ink);color:var(--white);border:0;border-radius:5px;padding:10px 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:12px;font-weight:550;white-space:nowrap}
 .settings>.primary{width:100%;margin-top:14px;background:var(--orange)}
 .secondary{background:transparent;border:1px solid var(--line);padding:7px;width:100%;border-radius:5px;margin-top:10px;font-size:11px}
@@ -207,6 +228,26 @@ figcaption>small{font-size:10px;color:var(--muted)}
       </select></label>
       <p class="hint" id="baselineHint"></p>
       <label class="field"><span data-i18n="strengthLabel">效果强度</span> <output id="strengthValue">100%</output><input type="range" id="strength" min="0" max="100" value="100"></label>
+      <details class="overlay-box" id="overlayDetails">
+        <summary>
+          <span class="overlay-head"><strong data-i18n="overlayTitle">叠加副 LUT</strong><span class="overlay-badge" id="overlayBadge">未启用</span></span>
+        </summary>
+        <div class="overlay-body">
+          <label class="field"><span data-i18n="overlayPresetLabel">内置副 LUT</span><select id="overlayPreset"><option value="" id="overlayPlaceholder">不使用副 LUT…</option></select></label>
+          <div class="overlay-file-row">
+            <label class="overlay-pick"><span data-i18n="overlayFileBtn">选择本地 .cube</span><input type="file" id="overlayFile" accept=".cube" aria-label="Choose overlay LUT file"></label>
+            <button type="button" class="reset-btn" id="overlayClear" data-i18n="overlayClearBtn" hidden>清除</button>
+          </div>
+          <small class="overlay-status muted" id="overlayStatus">未选择副 LUT（不叠加）</small>
+          <label class="field"><span data-i18n="overlayModeLabel">叠加方式</span><select id="overlayMode">
+            <option value="blend" data-i18n="ov_blend" selected>平行混调（推荐 · 不叠双倍反差）</option>
+            <option value="chain" data-i18n="ov_chain">前后串联（主 LUT → 副 LUT）</option>
+          </select></label>
+          <label class="field"><span data-i18n="overlayStrengthLabel">副 LUT 占比</span> <output id="overlayStrengthVal">35%</output><input type="range" id="overlayStrength" min="0" max="100" value="35"></label>
+          <p class="hint overlay-hint" id="overlayHint"></p>
+          <button type="button" class="secondary overlay-export" id="downloadMergedCube" data-i18n="exportMergedCubeBtn" disabled>导出融合 33³ .cube ↓</button>
+        </div>
+      </details>
       <label class="check-field"><input type="checkbox" id="sceneWeight"><span><strong data-i18n="sceneTitle">按当前预览照片色彩优化</strong><small data-i18n="sceneSub">强风格超纲时优先贴合右侧照片中的主要色彩</small></span></label>
 
       <button class="primary" id="convert" data-i18n="refitBtn" hidden disabled>重新拟合</button>
@@ -921,7 +962,7 @@ return {serialize, deserialize};
   else root.LutNP3 = factory(root.NP3Reference, root.NikonModelData);
 })(globalThis, function lutNp3Factory(NP3, MODEL) {
   'use strict';
-  const VERSION = '1.3.4', GUARD_SLACK = {rgb: 4.5, chroma: 3, max: 10}, NEUTRAL_WEIGHT = 2;
+  const VERSION = '1.4.0', GUARD_SLACK = {rgb: 4.5, chroma: 3, max: 10}, NEUTRAL_WEIGHT = 2;
   const clamp = (x, a = 0, b = 1) => (x < a ? a : x > b ? b : x);
   const clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
   const mix = (a, b, t) => a + (b - a) * t;
@@ -1080,18 +1121,24 @@ return {serialize, deserialize};
   const standardToZeroFcRgb = rgb => applyStdTone(rgb, standardToZeroFcY, STD_TO_ZFC_CHROMA);
 
   function settings(opts = {}) {
-    const o = {input: 'srgb', output: 'srgb', baseline: 'zerofc', range: 'full', exposure: 0, strength: 1, highlights: 'linear', ...opts};
+    const o = {input: 'srgb', output: 'srgb', baseline: 'zerofc', range: 'full', exposure: 0, strength: 1, highlights: 'linear', overlayCube: null, overlayMode: 'blend', overlayStrength: 0.35, ...opts};
+    if (o.overlayMode === undefined) o.overlayMode = 'blend';
+    if (o.overlayStrength === undefined) o.overlayStrength = 0.35;
     if (!['linear', 'expand'].includes(o.highlights)) throw Error('高光处理设置无效。');
     if (!['srgb', 'rec709-g24', 'rec709-oetf', 'nlog', 'flog', 'flog2', 'flog2c', 'custom'].includes(o.input)) throw Error('未知 LUT 输入色彩空间。');
     if (!['srgb', 'rec709-g24', 'rec709-oetf'].includes(o.output)) throw Error('输出须为 sRGB 或 Rec.709；Log→Log LUT 请先加输出变换。');
     if (!['zerofc', 'standard'].includes(o.baseline)) throw Error('调色基准设置无效。');
     if (!['full', 'legal'].includes(o.range) || !Number.isFinite(o.exposure) || Math.abs(o.exposure) > 6 || !Number.isFinite(o.strength) || o.strength < 0 || o.strength > 1) throw Error('曝光、范围或强度设置无效。');
     if (o.input === 'custom' && !o.preLut) throw Error('其它 Log 需要前置 CUBE：sRGB → 目标 Log／色域。');
+    if (!['blend', 'chain'].includes(o.overlayMode)) throw Error('副 LUT 叠加模式无效。');
+    if (!Number.isFinite(o.overlayStrength) || o.overlayStrength < 0 || o.overlayStrength > 1) throw Error('副 LUT 强度设置无效。');
+    if (o.overlayCube != null && (typeof o.overlayCube !== 'object' || !Number.isInteger(o.overlayCube.size) || o.overlayCube.size < 2 || !o.overlayCube.data || !Array.isArray(o.overlayCube.min) || !Array.isArray(o.overlayCube.max))) throw Error('副 LUT 数据无效。');
     return o;
   }
 
   function makeTarget(cube, opts = {}) {
     const o = settings(opts); const stats = {samples: 0, inputClipped: 0, outputClipped: 0};
+    const hasOverlay = Boolean(o.overlayCube && o.overlayStrength > 0);
     const fn = (rgb, record = false) => {
       const baseRgb = o.baseline === 'standard' ? zeroFcToStandardRgb(rgb) : rgb;
       let input = baseRgb;
@@ -1104,10 +1151,23 @@ return {serialize, deserialize};
       else if (o.input === 'rec709-oetf') input = baseRgb.map(x => rec709Encode(srgbDecode(x)));
       else if (o.input === 'custom') input = sample(o.preLut, baseRgb);
       let output = sample(cube, input);
-      const clipped = output.some(x => x < 0 || x > 1);
+      let clipped = output.some(x => x < 0 || x > 1);
       if (o.output === 'rec709-g24') output = output.map(x => srgbEncode(Math.max(0, x) ** 2.4));
       else if (o.output === 'rec709-oetf') output = output.map(x => srgbEncode(rec709Decode(Math.max(0, x))));
-      if (record) { stats.samples++; if (input.some((v, i) => v < cube.min[i] || v > cube.max[i])) stats.inputClipped++; if (clipped) stats.outputClipped++; }
+      let ovInputClipped = false;
+      if (hasOverlay) {
+        const clampedA = [clamp01(output[0]), clamp01(output[1]), clamp01(output[2])];
+        const ovIn = o.overlayMode === 'chain' ? clampedA : baseRgb;
+        if (record && ovIn.some((v, i) => v < o.overlayCube.min[i] || v > o.overlayCube.max[i])) ovInputClipped = true;
+        const outB = sample(o.overlayCube, ovIn);
+        if (outB[0] < 0 || outB[0] > 1 || outB[1] < 0 || outB[1] > 1 || outB[2] < 0 || outB[2] > 1) clipped = true;
+        output = [
+          mix(clampedA[0], clamp01(outB[0]), o.overlayStrength),
+          mix(clampedA[1], clamp01(outB[1]), o.overlayStrength),
+          mix(clampedA[2], clamp01(outB[2]), o.overlayStrength),
+        ];
+      }
+      if (record) { stats.samples++; if (ovInputClipped || input.some((v, i) => v < cube.min[i] || v > cube.max[i])) stats.inputClipped++; if (clipped) stats.outputClipped++; }
       return output.map((v, i) => mix(baseRgb[i], clamp(v), o.strength));
     };
     fn.stats = stats; fn.settings = o; return fn;
@@ -3652,7 +3712,15 @@ return {serialize, deserialize};
     fidelity.basis = sceneMetrics ? 'sceneRgbRmse255' : 'photoRgbRmse255'; fidelity.thresholds = [4, 7];
     if (fidelity.grade === 'low') warnings.push('还原度较低：这个 LUT 的一部分颜色变化超出了 Flexible Color 参数的表达能力（常见于单色染色、强烈交叉冲印、局部色相大幅替换）。导出的 NP3 只保留了它的整体影调和主要色彩倾向。');
     if (sceneMetrics) warnings.push('已按当前预览照片的色彩分布定向加权拟合（当前照片误差 ' + sceneMetrics.rgbRmse255.toFixed(2) + ' / 255，通用集误差 ' + photo.rgbRmse255.toFixed(2) + ' / 255）；更换差异较大的拍摄题材时建议重新核对。');
-    const cleanSettings = {...target.settings, sceneWeighted: hasScene}; delete cleanSettings.preLut;
+    const cleanSettings = {...target.settings, sceneWeighted: hasScene};
+    delete cleanSettings.preLut;
+    if (cleanSettings.overlayCube) {
+      cleanSettings.overlayActive = true;
+      cleanSettings.overlayTitle = cleanSettings.overlayCube.title || '';
+    } else {
+      cleanSettings.overlayActive = false;
+    }
+    delete cleanSettings.overlayCube;
     return {
       version: VERSION, params, settings: cleanSettings, source: {title: cube.title, size: cube.size, kind: cube.kind, domainMin: cube.min, domainMax: cube.max}, metrics: error, fidelity, stats: target.stats, warnings, evaluations,
       fitting: {policy: hasScene ? 'scene-weighted-protect-neutral-ramp' : 'protect-lut-neutral-ramp', sceneWeighted: hasScene, sceneSamples: hasScene ? sceneList.length : 0, trainingSamples: training.length, photoSamples: PHOTO_TRAIN.length, refinement, neutralGuard: {anchor: roundedAnchor, limits, final: neutralMetrics(params, neutralSet), restoredAnchor}, renderer: 'physics-informed stage-decomposed residual neural surrogate measured on the NX Studio Picture Control engine, optimised in Oklab with 3-zone white-balance lock'},
@@ -5997,6 +6065,24 @@ return {serialize, deserialize};
       baselineHintStd:'自动补齐尼康 ZeroFC 平底到标准（SD）的反差，避免相机直出像 Log 发灰；建议关闭机内动态 D-Lighting。',
       baselineHintZfc:'直接以尼康 Flexible Color 全零平底为起点拟合，适合 Log 还原 LUT、电影印片或柔和暗部风格。',
       strengthLabel:'效果强度',
+      overlayTitle:'叠加副 LUT',
+      overlayBadgeOff:'未启用',
+      overlayBadgeOn:(pct,m)=>(m==='chain'?'串联 ':'混调 ')+pct+'%',
+      overlayPresetLabel:'内置副 LUT',
+      overlayPlaceholder:'不使用副 LUT…',
+      overlayFileBtn:'选择本地 .cube',
+      overlayClearBtn:'清除',
+      overlayStatusIdle:'未选择副 LUT（不叠加）',
+      overlayStatusErr:'副 LUT 读取失败',
+      overlayModeLabel:'叠加方式',
+      ov_blend:'平行混调（推荐 · 不叠双倍反差）',
+      ov_chain:'前后串联（主 LUT → 副 LUT）',
+      overlayStrengthLabel:'副 LUT 占比',
+      overlayHintBlend:'原图分别走主/副 LUT 后按比例融合，避免双重 S 曲线发闷或高光爆掉；建议 20%–45%。',
+      overlayHintChain:'先套主 LUT 再套副 LUT，再按占比混回主 LUT；反差与染色更浓，建议 15%–35%。',
+      exportMergedCubeBtn:'导出融合 33³ .cube ↓',
+      stMergedCubeExported:n=>'已导出融合 LUT：'+n,
+      targetAppliedOverlay:(nm,pct)=>'已套用目标 LUT + '+pct+'% '+nm,
       sceneTitle:'按当前预览照片色彩优化',
       sceneSub:'强风格超纲时优先贴合右侧照片中的主要色彩',
       refitBtn:'重新拟合',
@@ -6140,6 +6226,24 @@ return {serialize, deserialize};
       baselineHintStd:'Compensates Nikon ZeroFC flat base to Standard (SD) contrast so in-camera output matches preview instead of looking flat/Log. Turn off Active D-Lighting in camera.',
       baselineHintZfc:'Fits directly on Nikon Flexible Color all-zero (ZeroFC) flat base. Best for Log-to-Rec.709 LUTs, print film LUTs, or soft shadows.',
       strengthLabel:'Strength',
+      overlayTitle:'Overlay Secondary LUT',
+      overlayBadgeOff:'Off',
+      overlayBadgeOn:(pct,m)=>(m==='chain'?'Chain ':'Blend ')+pct+'%',
+      overlayPresetLabel:'Built-in Secondary LUT',
+      overlayPlaceholder:'No secondary LUT…',
+      overlayFileBtn:'Load Local .cube',
+      overlayClearBtn:'Clear',
+      overlayStatusIdle:'No secondary LUT selected',
+      overlayStatusErr:'Failed to load secondary LUT',
+      overlayModeLabel:'Composition Mode',
+      ov_blend:'Parallel Blend (Recommended · No Double Contrast)',
+      ov_chain:'Serial Chain (Primary → Secondary)',
+      overlayStrengthLabel:'Overlay Weight',
+      overlayHintBlend:'Applies primary and secondary LUTs independently and mixes them, avoiding double S-curve clipping. 20%–45% recommended.',
+      overlayHintChain:'Feeds primary LUT output into secondary LUT and blends back. Stronger contrast/tint; 15%–35% recommended.',
+      exportMergedCubeBtn:'Export Merged 33³ .cube ↓',
+      stMergedCubeExported:n=>'Exported merged LUT: '+n,
+      targetAppliedOverlay:(nm,pct)=>'Target LUT + '+pct+'% '+nm,
       sceneTitle:'Optimize for Current Photo',
       sceneSub:'Prioritize colors present in the preview image for strong stylistic LUTs',
       refitBtn:'Refit Now',
@@ -6333,16 +6437,19 @@ return {serialize, deserialize};
     if(msg.includes('无法解码该 RAW'))return 'Failed to decode raw Bayer image data.';
     if(msg.includes('无法从该 RAW'))return 'Could not extract preview from RAW file.';
     if(msg.includes('调色基准'))return 'Invalid camera grading baseline.';
+    if(msg.includes('副 LUT 叠加模式'))return 'Invalid secondary LUT composition mode.';
+    if(msg.includes('副 LUT 强度'))return 'Invalid secondary LUT weight.';
+    if(msg.includes('副 LUT 数据'))return 'Invalid secondary LUT data.';
     return msg;
   }
 
   const PREVIEW_MAX=1600,EXPORT_MAX=4096,EXPORT_JPG_Q=0.95;
-  let cube=null,preLut=null,result=null,shownResult=null,baseParams=null,activeParams=null,busy=false,sourceName='',sourcePreset=null,photoVersion=0,photoTaskGen=0,photoState=null,lutVersion=0,preVersion=0;
+  let cube=null,preLut=null,overlayCube=null,overlayName='',overlayPreset=null,overlayVersion=0,overlayError='',result=null,shownResult=null,baseParams=null,activeParams=null,busy=false,sourceName='',sourcePreset=null,photoVersion=0,photoTaskGen=0,photoState=null,lutVersion=0,preVersion=0;
   let fitGeneration=0,activeGeneration=null,fitTimer=null,previewTimer=null,manualTimer=null,manualSettleTimer=null,queuedFit=false;
   let fitKey='fitIdle',origKind='ref',origCustom='',statusState={kind:'stIdle',arg1:'',arg2:''};
   let srcRgbaCache=null,sceneSamplesCache=null,targetLutCache=null,fitLutCache=null;
   const src=document.createElement('canvas');src.width=600;src.height=800;
-  const optgroups=[],presetOptions=[];
+  const optgroups=[],presetOptions=[],overlayOptgroups=[],overlayPresetOptions=[];
 
   function renderStatus(){
     const d=T(),k=statusState.kind;
@@ -6380,7 +6487,59 @@ return {serialize, deserialize};
   }
   function opts(includeScene=true){
     const sceneSamples=(includeScene&&$('sceneWeight')?.checked)?getSceneSamples():undefined;
-    return {input:$('inputSpace').value,output:$('outputSpace').value,baseline:currentBaseline(),range:$('range').value,exposure:Number($('exposure').value),highlights:$('highlights').value||'expand',strength:Number($('strength').value)/100,preLut,sceneSamples};
+    const overlayMode=$('overlayMode')?.value==='chain'?'chain':'blend';
+    const overlayStrength=$('overlayStrength')?Number($('overlayStrength').value)/100:0.35;
+    return {input:$('inputSpace').value,output:$('outputSpace').value,baseline:currentBaseline(),range:$('range').value,exposure:Number($('exposure').value),highlights:$('highlights').value||'expand',strength:Number($('strength').value)/100,preLut,overlayCube,overlayMode,overlayStrength,sceneSamples};
+  }
+  function overlayDisplayName(){
+    if(overlayPreset)return lang==='en'&&NAME_EN[overlayPreset.id]?NAME_EN[overlayPreset.id]:overlayPreset.name;
+    return overlayName;
+  }
+  function renderOverlayUI(){
+    const d=T();
+    const mode=$('overlayMode')?.value==='chain'?'chain':'blend';
+    const pct=$('overlayStrength')?Math.round(Number($('overlayStrength').value)||0):35;
+    if($('overlayStrengthVal')){$('overlayStrengthVal').value=pct+'%';$('overlayStrengthVal').textContent=pct+'%';}
+    if($('overlayHint'))$('overlayHint').textContent=mode==='chain'?d.overlayHintChain:d.overlayHintBlend;
+    if($('overlayBadge')){
+      if(overlayCube){
+        $('overlayBadge').textContent=d.overlayBadgeOn(pct,mode);
+        $('overlayBadge').classList.toggle('active',pct>0);
+      }else{
+        $('overlayBadge').textContent=d.overlayBadgeOff;
+        $('overlayBadge').classList.toggle('active',false);
+      }
+    }
+    if($('overlayClear'))$('overlayClear').hidden=!overlayCube;
+    if($('overlayStatus')){
+      if(overlayCube){
+        const unit1d=lang==='en'?' pts · 1D':' 点 · 1D';
+        $('overlayStatus').textContent=overlayDisplayName()+' · '+(overlayCube.kind===3?overlayCube.size+'³':overlayCube.size+unit1d);
+        $('overlayStatus').classList.toggle('muted',false);
+        $('overlayStatus').classList.toggle('error',false);
+      }else if(overlayError){
+        $('overlayStatus').textContent=d.overlayStatusErr+(lang==='en'?': ':'：')+translateError(overlayError);
+        $('overlayStatus').classList.toggle('muted',false);
+        $('overlayStatus').classList.toggle('error',true);
+      }else{
+        $('overlayStatus').textContent=d.overlayStatusIdle;
+        $('overlayStatus').classList.toggle('muted',true);
+        $('overlayStatus').classList.toggle('error',false);
+      }
+    }
+    if($('downloadMergedCube'))$('downloadMergedCube').disabled=!(ready()&&overlayCube);
+  }
+  function renderTargetCaption(hasTarget){
+    if(!$('targetCaption'))return;
+    const d=T();
+    if(!hasTarget){$('targetCaption').textContent=d.targetWait;return;}
+    const pct=$('overlayStrength')?Math.round(Number($('overlayStrength').value)||0):35;
+    if(overlayCube&&pct>0){
+      const nm=overlayDisplayName().replace(/\.cube$/i,'');
+      $('targetCaption').textContent=d.targetAppliedOverlay(nm,pct);
+    }else{
+      $('targetCaption').textContent=d.targetApplied;
+    }
   }
   function ready(){return !!cube&&($('inputSpace').value!=='custom'||!!preLut);}
 
@@ -6880,6 +7039,7 @@ return {serialize, deserialize};
     $('convert').hidden=!needRetry;
     $('convert').disabled=!ready()||active;
     $('cancel').disabled=false;$('cancel').hidden=!pending;$('progressWrap').hidden=!active;
+    if($('downloadMergedCube'))$('downloadMergedCube').disabled=!(ready()&&overlayCube);
   }
   function spaceUI(resetOutput=true){
     const d=T(),mode=$('inputSpace').value,isLog=['nlog','flog','flog2','flog2c'].includes(mode);
@@ -6911,18 +7071,22 @@ return {serialize, deserialize};
     if($('lutLinks'))$('lutLinks').innerHTML=d.lutLinks;
     if($('presetCount'))$('presetCount').textContent=d.presetCount(P.entries.length);
     if($('presetPlaceholder'))$('presetPlaceholder').textContent=d.presetPlaceholder;
+    if($('overlayPlaceholder'))$('overlayPlaceholder').textContent=d.overlayPlaceholder;
     if($('presetName'))$('presetName').placeholder=d.namePlaceholder;
     if($('exportHint'))$('exportHint').innerHTML=d.exportHint;
     if(!busy&&$('progressText'))$('progressText').textContent=d.progStart;
     if(!preLut&&$('preInfo'))$('preInfo').textContent=fitKey==='fitPreErr'?d.preInfoFailed:d.preInfoIdle;
     for(const g of optgroups)g.el.label=d.groups[g.raw]||g.raw;
     for(const o of presetOptions)o.el.textContent=lang==='en'&&NAME_EN[o.id]?NAME_EN[o.id]:o.raw;
+    for(const g of overlayOptgroups)g.el.label=d.groups[g.raw]||g.raw;
+    for(const o of overlayPresetOptions)o.el.textContent=lang==='en'&&NAME_EN[o.id]?NAME_EN[o.id]:o.raw;
     renderFileBox();
     showPresetInfo(sourcePreset);
+    renderOverlayUI();
     spaceUI(false);
     renderPhotoMetaBar();
     renderOrigCaption();
-    $('targetCaption').textContent=ready()?d.targetApplied:d.targetWait;
+    renderTargetCaption(ready());
     syncSaveButtons();
     updateManualLabels();
     refreshMetricsDisplay();
@@ -6986,7 +7150,7 @@ return {serialize, deserialize};
     if(!ready())return null;
     const o=opts(false);
     const effBaseline=(o.baseline==='standard'&&isSrcZeroFc())?'standard':'zerofc';
-    const key=[lutVersion,preVersion,o.input,o.output,effBaseline,o.range,o.exposure,o.highlights,o.strength].join('|');
+    const key=[lutVersion,preVersion,overlayVersion,o.input,o.output,effBaseline,o.range,o.exposure,o.highlights,o.strength,o.overlayMode,o.overlayStrength].join('|');
     if(targetLutCache&&targetLutCache.key===key)return targetLutCache.lut;
     const fn=C.makeTarget(cube,{...o,baseline:effBaseline});
     const lut=typeof D.bakeLut3D==='function'?D.bakeLut3D(fn,33):{fn};
@@ -7029,7 +7193,7 @@ return {serialize, deserialize};
     drawWithLut($('target'),targetLut);
     const renderP=activeParams||shownResult?.params;
     if(renderP)drawFitted(renderP,33);
-    $('targetCaption').textContent=targetLut?T().targetApplied:T().targetWait;
+    renderTargetCaption(Boolean(targetLut));
     if($('saveTarget'))$('saveTarget').hidden=!targetLut;
     fitState();
   }
@@ -7075,6 +7239,62 @@ return {serialize, deserialize};
     if(!id){$('filmPreset').value=sourcePreset?sourcePreset.id:'';return;}
     try{const {metadata}=P.get(id);resetPresetSettings();return loadLut(new File([P.cubeText(id)],id+'.cube',{type:'text/plain'}),metadata);}catch(e){setStatusError(e);}
   });
+
+  if($('overlayPreset')){
+    for(const group of new Set(P.entries.map(p=>p.group))){
+      const optgroup=document.createElement('optgroup');optgroup.label=group;
+      overlayOptgroups.push({el:optgroup,raw:group});
+      for(const preset of P.entries.filter(p=>p.group===group)){
+        const option=document.createElement('option');option.value=preset.id;option.textContent=preset.name;
+        overlayPresetOptions.push({el:option,id:preset.id,raw:preset.name});
+        optgroup.appendChild(option);
+      }
+      $('overlayPreset').appendChild(optgroup);
+    }
+  }
+  function clearOverlay(triggerChange=true){
+    ++overlayVersion;overlayCube=null;overlayName='';overlayPreset=null;overlayError='';
+    if($('overlayPreset'))$('overlayPreset').value='';
+    if($('overlayFile'))$('overlayFile').value='';
+    renderOverlayUI();
+    if(triggerChange&&ready())settingsChanged();
+    else{preview();updateControls();}
+  }
+  async function loadOverlayFile(file){
+    const version=++overlayVersion;overlayCube=null;overlayName='';overlayPreset=null;overlayError='';
+    if($('overlayPreset'))$('overlayPreset').value='';
+    try{
+      if(!file||!file.name.toLowerCase().endsWith('.cube'))throw Error('请选择 .cube 文件。');
+      if(file.size>32*1024*1024)throw Error('文件不能超过 32 MB。');
+      const text=await file.text();if(version!==overlayVersion)return;
+      overlayCube=C.parseCube(text);overlayName=file.name;overlayError='';
+      renderOverlayUI();
+      if(ready())settingsChanged();
+      else updateControls();
+    }catch(err){
+      if(version!==overlayVersion)return;
+      overlayCube=null;overlayError=err?.message||String(err);
+      renderOverlayUI();setStatusError(err);
+      if(ready())settingsChanged();
+      else updateControls();
+    }
+  }
+  if($('overlayPreset'))$('overlayPreset').addEventListener('change',()=>{
+    const id=$('overlayPreset').value;
+    if(!id){clearOverlay(true);return;}
+    try{
+      const {metadata,cube:ovCube}=P.get(id);
+      ++overlayVersion;overlayCube=ovCube;overlayPreset=metadata;overlayName=metadata.name;overlayError='';
+      if($('overlayFile'))$('overlayFile').value='';
+      renderOverlayUI();
+      if(ready())settingsChanged();
+      else updateControls();
+    }catch(e){overlayError=e?.message||String(e);renderOverlayUI();setStatusError(e);}
+  });
+  if($('overlayFile'))$('overlayFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;return loadOverlayFile(f);});
+  if($('overlayClear'))$('overlayClear').addEventListener('click',()=>clearOverlay(true));
+  if($('overlayMode'))$('overlayMode').addEventListener('change',()=>{renderOverlayUI();if(ready()&&overlayCube)settingsChanged();});
+  if($('overlayStrength'))$('overlayStrength').addEventListener('input',()=>{renderOverlayUI();if(ready()&&overlayCube)settingsChanged();});
 
   $('preFile').addEventListener('change',async e=>{
     const version=++preVersion;preLut=null;invalidate();preview();
@@ -7416,7 +7636,7 @@ return {serialize, deserialize};
 
   async function runQueuedFit(){
     if(busy||!queuedFit||!ready())return;queuedFit=false;
-    const generation=fitGeneration,sourceCube=cube,settings=opts(),filename=sourceName,preset=sourcePreset;
+    const generation=fitGeneration,sourceCube=cube,settings=opts(),filename=sourceName,preset=sourcePreset,ovPreset=overlayPreset,ovName=overlayName,hasOv=Boolean(overlayCube);
     busy=true;activeGeneration=generation;curPct=0;fitKey='fitRunning';fitState();updateControls();$('progress').value=0;if($('progressText'))$('progressText').textContent=T().progStart;setStatusKey('stFitting');
     try{
       const candidate=await runFitEngine(sourceCube,settings,p=>{if(generation!==fitGeneration)return;curPct=p.percent;$('progress').value=p.percent;$('progressText').textContent=T().progPct(p.percent);fitState();},()=>generation!==fitGeneration);
@@ -7424,7 +7644,7 @@ return {serialize, deserialize};
       const preBaked=candidate._bakedFitLut||null,preBakedPreZfc=Boolean(candidate._bakedFitLutPreZfc);
       if('_bakedFitLut' in candidate)delete candidate._bakedFitLut;
       if('_bakedFitLutPreZfc' in candidate)delete candidate._bakedFitLutPreZfc;
-      C.encodeNP3(candidate.params,'Validation');candidate.validation.np3Structure=true;candidate.source.filename=filename;if(preset)candidate.source.preset={...preset};
+      C.encodeNP3(candidate.params,'Validation');candidate.validation.np3Structure=true;candidate.source.filename=filename;if(preset)candidate.source.preset={...preset};if(hasOv)candidate.source.overlay=ovPreset?{id:ovPreset.id,name:ovPreset.name}:{filename:ovName};
       result=shownResult=candidate;
       baseParams=C.cloneParams(candidate.params);
       activeParams=buildActiveParams();
@@ -7519,6 +7739,24 @@ return {serialize, deserialize};
   if($('saveOrig'))$('saveOrig').addEventListener('click',()=>exportPreviewHd('orig'));
   if($('saveTarget'))$('saveTarget').addEventListener('click',()=>exportPreviewHd('target'));
   if($('saveFitted'))$('saveFitted').addEventListener('click',()=>exportPreviewHd('fitted'));
+
+  if($('downloadMergedCube'))$('downloadMergedCube').addEventListener('click',()=>{
+    if(!ready()||!overlayCube)return;
+    try{
+      const o=opts(false);
+      const pct=Math.round((o.overlayStrength||0)*100);
+      const modeTag=o.overlayMode==='chain'?'chain':'blend';
+      const mainStem=sanitizeStem($('presetName')?.value||sourceName,'Primary');
+      const ovRaw=overlayPreset?overlayPreset.cameraName:overlayName;
+      const ovStem=sanitizeStem(ovRaw,'Overlay');
+      const title=(mainStem+' + '+pct+'% '+ovStem+' ('+modeTag+')').slice(0,64);
+      const fileName=mainStem+'+'+ovStem+'_'+modeTag+pct+'.cube';
+      const fn=C.makeTarget(cube,{...o,baseline:'zerofc'});
+      const text=C.cubeText(33,fn,title);
+      save(text,'text/plain;charset=utf-8',fileName);
+      setStatusKey('stMergedCubeExported',fileName);
+    }catch(e){setStatusError(e);}
+  });
 
   function filename(){const slot=Number($('slot').value);if(!Number.isInteger(slot)||slot<1||slot>99)throw Error('卡槽编号须为 1–99。');return 'PICCON'+String(slot).padStart(2,'0');}
   $('download').addEventListener('click',()=>{
